@@ -20,11 +20,11 @@
 
 %%
 
-/* 
- * PARTE 3 - REGRAS LÉXICAS 
- * Aqui virão as nossas Expressões Regulares que transformarão
- * os textos que estão no nosso arquivo em "Tokens"
- */
+ /* 
+  * PARTE 3 - REGRAS LÉXICAS 
+  * Aqui virão as nossas Expressões Regulares que transformarão
+  * os textos que estão no nosso arquivo em "Tokens"
+  */
 
 
 "/*"                { BEGIN(COMMENT); }
