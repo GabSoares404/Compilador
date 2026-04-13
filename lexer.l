@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "parser.h"
+#include <string.h>
 %}
 
 /*
@@ -70,14 +71,28 @@
 ">" |
 "!"                 { return yytext[0]; }
 
-[a-zA-Z_][a-zA-Z0-9_]* { return IDENTIFICADOR; }
-[0-9]+      { return INTCONST; }
+[a-zA-Z_][a-zA-Z0-9_]* { 
+    yylval.str = strdup(yytext);
+    return IDENTIFICADOR; 
+    }
 
-\"[^\"\n]*\"        { return CADEIACARACTERES; }
+[0-9]+      { 
+    yylval.str = strdup(yytext);
+    return INTCONST; 
+    }
+
+\"[^\"\n]*\"        { 
+    yylval.str = strdup(yytext);
+    return CADEIACARACTERES; 
+    }
+
 \"[^\"\n]*\n        { printf("ERRO: CADEIA DE CARACTERES OCUPA MAIS DE UMA LINHA %d\n", yylineno - 1); 
                       exit(1); }
 
-\'([^'\n\\]|\\.)\'  { return CARCONST; }
+\'([^'\n\\]|\\.)\'  { 
+    yylval.str = strdup(yytext);
+    return CARCONST; 
+    }
 
 .                   { printf("ERRO: CARACTERE INVÁLIDO %d\n", yylineno);
                       exit(1); }

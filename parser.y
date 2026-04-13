@@ -5,6 +5,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include "ast.h"
 
 extern int yylineno; /* Puxa a contagem de linhas do Flex */
 extern char* yytext; /* Puxa o texto lido pelo Flex */
@@ -19,12 +20,18 @@ void yyerror(const char *s);
  * Aqui declaramos configurações e listamos todos os tokens gerados pelo Lexer.
  */
 %define parse.error verbose
-
+%union {
+    char* str;    /* Compartimento para textos soltos do Flex */
+    struct AST* node; /* Compartimento para os nossos Nós Árvore */
+}
 /* AQUI DECLARAREMOS NOSSOS TOKENS */
 
 %token PRINCIPAL INT CAR LEIA ESCREVA NOVALINHA SE ENTAO SENAO FIMSE ENQUANTO
 %token OU E IGUAL DIFERENTE MAIORIGUAL MENORIGUAL
-%token IDENTIFICADOR INTCONST CADEIACARACTERES CARCONST
+%token <str> IDENTIFICADOR INTCONST CADEIACARACTERES CARCONST
+
+/* Obriga as suas regras da gramática inteira a usarem as caixas do compartimento de nós */
+%type <node> Programa DeclPrograma Bloco VarSection ListaDeclVar DeclVar Tipo ListaIds ListaComando Comando Expr OrExpr AndExpr EqExpr DesigExpr AddExpr MulExpr UnExpr PrimExpr
 
 %start Programa
 
