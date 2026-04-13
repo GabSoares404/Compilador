@@ -81,7 +81,17 @@ extern int yydebug;
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-typedef int YYSTYPE;
+union YYSTYPE
+{
+#line 23 "parser.y"
+
+    char* str;    /* Compartimento para textos soltos do Flex */
+    struct AST* node; /* Compartimento para os nossos Nós Árvore */
+
+#line 92 "parser.h"
+
+};
+typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1
 #endif

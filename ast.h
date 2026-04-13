@@ -6,10 +6,13 @@ typedef enum {
     NODE_PROGRAMA,
     NODE_BLOCO,
     NODE_DECL_VAR,
+    NODE_LISTA_COMANDO,
     NODE_COMANDO,
     NODE_EXPR,
     NODE_IDENTIFICADOR,
-    NODE_NOVALINHA, // Adicionei esse para o break line
+    NODE_INTCONST,
+    NODE_CARCONST,
+    NODE_NOVALINHA, 
     NODE_OP
 } NodeType;
 

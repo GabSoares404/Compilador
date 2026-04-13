@@ -44,94 +44,101 @@ void yyerror(const char *s);
 Programa : DeclPrograma
          ;
 
-DeclPrograma : PRINCIPAL Bloco
+DeclPrograma : PRINCIPAL Bloco { $$ = createNode(NODE_PROGRAMA, "principal", yylineno, $2, NULL, NULL); }
              ;
 
-Bloco : '{' VarSection ListaComando '}'
-      | '{' ListaComando '}'
-      | '{' VarSection '}'
-      | '{' '}'
+Bloco : '{' VarSection ListaComando '}'  { $$ = createNode(NODE_BLOCO, "bloco", yylineno, $2, $3, NULL); }
+      | '{' ListaComando '}'             { $$ = createNode(NODE_BLOCO, "bloco", yylineno, NULL, $2, NULL); }
+      | '{' VarSection '}'               { $$ = createNode(NODE_BLOCO, "bloco", yylineno, $2, NULL, NULL); }
+      | '{' '}'                          { $$ = createNode(NODE_BLOCO, "bloco_vazio", yylineno, NULL, NULL, NULL); }
       ;
 
-
-Tipo : INT
-     | CAR
-     ;
-
-DeclVar : Tipo ListaIds ';'
-        ;
-
-ListaIds : ListaIds ',' IDENTIFICADOR
-         | IDENTIFICADOR
-         ;
-
-VarSection : ListaDeclVar
+VarSection : ListaDeclVar { $$ = $1; }
            ;
 
-ListaDeclVar : ListaDeclVar DeclVar
-             | DeclVar
+ListaDeclVar : ListaDeclVar DeclVar { $$ = createNode(NODE_DECL_VAR, "lista_var", yylineno, $1, $2, NULL); }
+             | DeclVar              { $$ = $1; }
              ;
 
-ListaComando : ListaComando Comando
-             | Comando
-             ;
-
-Comando : LEIA IDENTIFICADOR ';'
-        | NOVALINHA ';'
-        | IDENTIFICADOR '=' Expr ';'
-        | ESCREVA Expr ';'
-        | SE '(' Expr ')' ENTAO ListaComando FIMSE
-        | SE '(' Expr ')' ENTAO ListaComando SENAO ListaComando FIMSE
-        | ENQUANTO '(' Expr ')' Comando
-        | Bloco
-        | ';'
+DeclVar : Tipo ListaIds ';'  { $$ = createNode(NODE_DECL_VAR, "var", yylineno, $1, $2, NULL); }
         ;
 
-Expr : OrExpr
+/* Dica: Tipos não precisam de nós soltos na AST compacta, a tabela de simbolos fará isso. Passamos NULL para focar nas variáveis apenas */
+Tipo : INT { $$ = NULL; }
+     | CAR { $$ = NULL; }
      ;
 
-OrExpr : OrExpr OU AndExpr
-       | AndExpr
+ListaIds : ListaIds ',' IDENTIFICADOR { AST* idNode = createNode(NODE_IDENTIFICADOR, $3, yylineno, NULL, NULL, NULL); $$ = createNode(NODE_DECL_VAR, "ids", yylineno, $1, idNode, NULL); }
+         | IDENTIFICADOR              { $$ = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL); }
+         ;
+
+ListaComando : ListaComando Comando  { $$ = createNode(NODE_LISTA_COMANDO, "comandos", yylineno, $1, $2, NULL); }
+             | Comando               { $$ = $1; }
+             ;
+
+Comando : LEIA IDENTIFICADOR ';' { 
+            AST* idNode = createNode(NODE_IDENTIFICADOR, $2, yylineno, NULL, NULL, NULL);
+            $$ = createNode(NODE_COMANDO, "leia", yylineno, idNode, NULL, NULL); 
+        }
+        | ESCREVA Expr ';' { $$ = createNode(NODE_COMANDO, "escreva", yylineno, $2, NULL, NULL); }
+        | NOVALINHA ';' { $$ = createNode(NODE_NOVALINHA, "novalinha", yylineno, NULL, NULL, NULL); }
+        | IDENTIFICADOR '=' Expr ';' { 
+            AST* idNode = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
+            $$ = createNode(NODE_COMANDO, "=", yylineno, idNode, $3, NULL); 
+        }
+        | SE '(' Expr ')' ENTAO ListaComando FIMSE { $$ = createNode(NODE_COMANDO, "se", yylineno, $3, $6, NULL); }
+        | SE '(' Expr ')' ENTAO ListaComando SENAO ListaComando FIMSE { $$ = createNode(NODE_COMANDO, "se_senao", yylineno, $3, $6, $8); }
+        | ENQUANTO '(' Expr ')' ListaComando { $$ = createNode(NODE_COMANDO, "enquanto", yylineno, $3, $5, NULL); }
+        | Bloco { $$ = $1; }
+        | ';' { $$ = createNode(NODE_COMANDO, "vazio", yylineno, NULL, NULL, NULL); }
+        ;
+
+Expr : OrExpr { $$ = $1; }
+     ;
+
+OrExpr : OrExpr OU AndExpr { $$ = createNode(NODE_OP, "||", yylineno, $1, $3, NULL); }
+       | AndExpr { $$ = $1; }
        ;
 
-AndExpr : AndExpr E EqExpr
-        | EqExpr
+AndExpr : AndExpr E EqExpr { $$ = createNode(NODE_OP, "&", yylineno, $1, $3, NULL); }
+        | EqExpr { $$ = $1; }
         ;
         
-EqExpr : EqExpr IGUAL DesigExpr
-       | EqExpr DIFERENTE DesigExpr
-       | DesigExpr
+EqExpr : EqExpr IGUAL DesigExpr { $$ = createNode(NODE_OP, "==", yylineno, $1, $3, NULL); }
+       | EqExpr DIFERENTE DesigExpr { $$ = createNode(NODE_OP, "!=", yylineno, $1, $3, NULL); }
+       | DesigExpr { $$ = $1; }
        ; 
     
-DesigExpr : DesigExpr '<' AddExpr
-          | DesigExpr '>' AddExpr
-          | DesigExpr MAIORIGUAL AddExpr
-          | DesigExpr MENORIGUAL AddExpr
-          | AddExpr    
+DesigExpr : DesigExpr '<' AddExpr { $$ = createNode(NODE_OP, "<", yylineno, $1, $3, NULL); }
+          | DesigExpr '>' AddExpr { $$ = createNode(NODE_OP, ">", yylineno, $1, $3, NULL); }
+          | DesigExpr MAIORIGUAL AddExpr { $$ = createNode(NODE_OP, ">=", yylineno, $1, $3, NULL); }
+          | DesigExpr MENORIGUAL AddExpr { $$ = createNode(NODE_OP, "<=", yylineno, $1, $3, NULL); }
+          | AddExpr   { $$ = $1; }
           ;
 
-AddExpr : AddExpr '+' MulExpr
-        | AddExpr '-' MulExpr
-        | MulExpr
+AddExpr : AddExpr '+' MulExpr { $$ = createNode(NODE_OP, "+", yylineno, $1, $3, NULL); }
+        | AddExpr '-' MulExpr { $$ = createNode(NODE_OP, "-", yylineno, $1, $3, NULL); }
+        | MulExpr             { $$ = $1; }
         ;
 
-MulExpr : MulExpr '*' UnExpr
-        | MulExpr '/' UnExpr
-        | UnExpr
+MulExpr : MulExpr '*' UnExpr  { $$ = createNode(NODE_OP, "*", yylineno, $1, $3, NULL); }
+        | MulExpr '/' UnExpr  { $$ = createNode(NODE_OP, "/", yylineno, $1, $3, NULL); }
+        | UnExpr              { $$ = $1; }
         ;
 
-UnExpr : '+' PrimExpr
-       | '-' PrimExpr
-       | '!' PrimExpr
-       | PrimExpr
+UnExpr : '+' PrimExpr         { $$ = createNode(NODE_OP, "+", yylineno, NULL, $2, NULL); }
+       | '-' PrimExpr         { $$ = createNode(NODE_OP, "-", yylineno, NULL, $2, NULL); }
+       | '!' PrimExpr         { $$ = createNode(NODE_OP, "!", yylineno, NULL, $2, NULL); }
+       | PrimExpr             { $$ = $1; }
        ;
 
-PrimExpr : IDENTIFICADOR
-         | INTCONST
-         | CARCONST
-         | CADEIACARACTERES
-         | '(' Expr ')'
+PrimExpr : IDENTIFICADOR      { $$ = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL); }
+         | INTCONST           { $$ = createNode(NODE_INTCONST, $1, yylineno, NULL, NULL, NULL); }
+         | CARCONST           { $$ = createNode(NODE_CARCONST, $1, yylineno, NULL, NULL, NULL); }
+         | CADEIACARACTERES   { $$ = createNode(NODE_CARCONST, $1, yylineno, NULL, NULL, NULL); }
+         | '(' Expr ')'       { $$ = $2; }
          ;
+
 
 %%
 

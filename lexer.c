@@ -547,14 +547,15 @@ char *yytext;
 #include <stdio.h>
 #include <stdlib.h>
 #include "parser.h"
-#line 551 "lexer.c"
+#include <string.h>
+#line 552 "lexer.c"
 /*
  * PARTE 2 - DEFINIÇÕES DO FLEX 
  * Aqui nós dizemos ao Flex como lidar com linhas 
  * e definimos alguns estados e atalhos.
  */
 
-#line 558 "lexer.c"
+#line 559 "lexer.c"
 
 #define INITIAL 0
 #define COMMENT 1
@@ -772,10 +773,10 @@ YY_DECL
 		}
 
 	{
-#line 21 "lexer.l"
+#line 22 "lexer.l"
 
 
-#line 24 "lexer.l"
+#line 25 "lexer.l"
  /* 
   * PARTE 3 - REGRAS LÉXICAS 
   * Aqui virão as nossas Expressões Regulares que transformarão
@@ -783,7 +784,7 @@ YY_DECL
   */
 
 
-#line 787 "lexer.c"
+#line 788 "lexer.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -852,191 +853,203 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 31 "lexer.l"
+#line 32 "lexer.l"
 { BEGIN(COMMENT); }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 32 "lexer.l"
+#line 33 "lexer.l"
 { BEGIN(INITIAL); }
 	YY_BREAK
 case 3:
 /* rule 3 can match eol */
 YY_RULE_SETUP
-#line 33 "lexer.l"
+#line 34 "lexer.l"
 { /* faz nada, mas nosso option yylineno incrementará a linha */ }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 34 "lexer.l"
+#line 35 "lexer.l"
 { /* consome o lixo dentro do comentario */ }
 	YY_BREAK
 case YY_STATE_EOF(COMMENT):
-#line 35 "lexer.l"
+#line 36 "lexer.l"
 { printf("ERRO: COMENTÁRIO NAO TERMINA %d\n", yylineno);
                       exit(1); }
 	YY_BREAK
 case 5:
 /* rule 5 can match eol */
 YY_RULE_SETUP
-#line 39 "lexer.l"
+#line 40 "lexer.l"
 { /* Ignora espacos e quebras de linha */ }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 41 "lexer.l"
+#line 42 "lexer.l"
 { return PRINCIPAL; }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 42 "lexer.l"
+#line 43 "lexer.l"
 { return INT; }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 43 "lexer.l"
+#line 44 "lexer.l"
 { return CAR; }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 44 "lexer.l"
+#line 45 "lexer.l"
 { return LEIA; }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 45 "lexer.l"
+#line 46 "lexer.l"
 { return ESCREVA; }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 46 "lexer.l"
+#line 47 "lexer.l"
 { return NOVALINHA; }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 47 "lexer.l"
+#line 48 "lexer.l"
 { return SE; }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 48 "lexer.l"
+#line 49 "lexer.l"
 { return ENTAO; }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 49 "lexer.l"
+#line 50 "lexer.l"
 { return SENAO; }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 50 "lexer.l"
+#line 51 "lexer.l"
 { return FIMSE; }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 51 "lexer.l"
+#line 52 "lexer.l"
 { return ENQUANTO; }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 52 "lexer.l"
+#line 53 "lexer.l"
 { return OU; }
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 53 "lexer.l"
+#line 54 "lexer.l"
 { return E; }
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 54 "lexer.l"
+#line 55 "lexer.l"
 { return IGUAL; }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 55 "lexer.l"
+#line 56 "lexer.l"
 { return DIFERENTE; }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 56 "lexer.l"
+#line 57 "lexer.l"
 { return MAIORIGUAL; }
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 57 "lexer.l"
+#line 58 "lexer.l"
 { return MENORIGUAL; }
 	YY_BREAK
 case 23:
-#line 60 "lexer.l"
-case 24:
 #line 61 "lexer.l"
-case 25:
+case 24:
 #line 62 "lexer.l"
-case 26:
+case 25:
 #line 63 "lexer.l"
-case 27:
+case 26:
 #line 64 "lexer.l"
-case 28:
+case 27:
 #line 65 "lexer.l"
-case 29:
+case 28:
 #line 66 "lexer.l"
-case 30:
+case 29:
 #line 67 "lexer.l"
-case 31:
+case 30:
 #line 68 "lexer.l"
-case 32:
+case 31:
 #line 69 "lexer.l"
-case 33:
+case 32:
 #line 70 "lexer.l"
-case 34:
+case 33:
 #line 71 "lexer.l"
-case 35:
+case 34:
 #line 72 "lexer.l"
+case 35:
+#line 73 "lexer.l"
 case 36:
 YY_RULE_SETUP
-#line 72 "lexer.l"
+#line 73 "lexer.l"
 { return yytext[0]; }
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
-#line 74 "lexer.l"
-{ return IDENTIFICADOR; }
+#line 75 "lexer.l"
+{ 
+    yylval.str = strdup(yytext);
+    return IDENTIFICADOR; 
+    }
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
-#line 75 "lexer.l"
-{ return INTCONST; }
+#line 80 "lexer.l"
+{ 
+    yylval.str = strdup(yytext);
+    return INTCONST; 
+    }
 	YY_BREAK
 case 39:
 YY_RULE_SETUP
-#line 77 "lexer.l"
-{ return CADEIACARACTERES; }
+#line 85 "lexer.l"
+{ 
+    yylval.str = strdup(yytext);
+    return CADEIACARACTERES; 
+    }
 	YY_BREAK
 case 40:
 /* rule 40 can match eol */
 YY_RULE_SETUP
-#line 78 "lexer.l"
+#line 90 "lexer.l"
 { printf("ERRO: CADEIA DE CARACTERES OCUPA MAIS DE UMA LINHA %d\n", yylineno - 1); 
                       exit(1); }
 	YY_BREAK
 case 41:
 YY_RULE_SETUP
-#line 81 "lexer.l"
-{ return CARCONST; }
+#line 93 "lexer.l"
+{ 
+    yylval.str = strdup(yytext);
+    return CARCONST; 
+    }
 	YY_BREAK
 case 42:
 YY_RULE_SETUP
-#line 83 "lexer.l"
+#line 98 "lexer.l"
 { printf("ERRO: CARACTERE INVÁLIDO %d\n", yylineno);
                       exit(1); }
 	YY_BREAK
 case 43:
 YY_RULE_SETUP
-#line 87 "lexer.l"
+#line 102 "lexer.l"
 ECHO;
 	YY_BREAK
-#line 1040 "lexer.c"
+#line 1053 "lexer.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -2053,7 +2066,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 87 "lexer.l"
+#line 102 "lexer.l"
 
 
 /* 
