@@ -5,7 +5,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include "ast.h"
+#include "AST/ast.h"
 
 extern int yylineno; /* Puxa a contagem de linhas do Flex */
 extern char* yytext; /* Puxa o texto lido pelo Flex */
@@ -47,20 +47,29 @@ Programa : DeclPrograma
 DeclPrograma : PRINCIPAL Bloco { $$ = createNode(NODE_PROGRAMA, "principal", yylineno, $2, NULL, NULL); }
              ;
 
-Bloco : '{' VarSection ListaComando '}'  { $$ = createNode(NODE_BLOCO, "bloco", yylineno, $2, $3, NULL); }
-      | '{' ListaComando '}'             { $$ = createNode(NODE_BLOCO, "bloco", yylineno, NULL, $2, NULL); }
-      | '{' VarSection '}'               { $$ = createNode(NODE_BLOCO, "bloco", yylineno, $2, NULL, NULL); }
-      | '{' '}'                          { $$ = createNode(NODE_BLOCO, "bloco_vazio", yylineno, NULL, NULL, NULL); }
+Bloco : '{' ListaComando '}'             { $$ = createNode(NODE_BLOCO, "bloco", yylineno, NULL, $2, NULL); }
+      | VarSection '{' ListaComando '}'  { $$ = createNode(NODE_BLOCO, "bloco_var", yylineno, $1, $3, NULL); }
       ;
 
-VarSection : ListaDeclVar { $$ = $1; }
+VarSection : '{' ListaDeclVar '}' { $$ = $2; }
            ;
 
-ListaDeclVar : ListaDeclVar DeclVar { $$ = createNode(NODE_DECL_VAR, "lista_var", yylineno, $1, $2, NULL); }
-             | DeclVar              { $$ = $1; }
+ListaDeclVar : IDENTIFICADOR DeclVar ':' Tipo ';' ListaDeclVar { 
+                 AST* idNode = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
+                 AST* vars = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, $2, NULL);
+                 $$ = createNode(NODE_DECL_VAR, "lista_var", yylineno, vars, $6, NULL);
+             }
+             | IDENTIFICADOR DeclVar ':' Tipo ';' {
+                 AST* idNode = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
+                 $$ = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, $2, NULL);
+             }
              ;
 
-DeclVar : Tipo ListaIds ';'  { $$ = createNode(NODE_DECL_VAR, "var", yylineno, $1, $2, NULL); }
+DeclVar : /* epsilon - vazio */     { $$ = NULL; }
+        | ',' IDENTIFICADOR DeclVar { 
+             AST* idNode = createNode(NODE_IDENTIFICADOR, $2, yylineno, NULL, NULL, NULL);
+             $$ = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, $3, NULL);
+        }
         ;
 
 /* Dica: Tipos não precisam de nós soltos na AST compacta, a tabela de simbolos fará isso. Passamos NULL para focar nas variáveis apenas */
