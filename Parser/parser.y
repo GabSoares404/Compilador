@@ -5,8 +5,8 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include "AST/ast.h"
-#include "Semantic/semantic.h"
+#include "../AST/ast.h"
+#include "../Semantic/semantic.h"
 
 extern int yylineno; /* Puxa a contagem de linhas do Flex */
 extern char* yytext; /* Puxa o texto lido pelo Flex */

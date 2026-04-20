@@ -1,6 +1,6 @@
-#line 2 "lexer.c"
+#line 2 "Lexer/lexer.c"
 
-#line 4 "lexer.c"
+#line 4 "Lexer/lexer.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -537,8 +537,8 @@ int yy_flex_debug = 0;
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *yytext;
-#line 1 "lexer.l"
-#line 2 "lexer.l"
+#line 1 "Lexer/lexer.l"
+#line 2 "Lexer/lexer.l"
 /* 
  * PARTE 1 - DEFINIÇÕES C
  * Aqui importamos bibliotecas e declaramos variáveis globais 
@@ -546,16 +546,16 @@ char *yytext;
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include "parser.h"
+#include "../Parser/parser.h"
 #include <string.h>
-#line 552 "lexer.c"
+#line 552 "Lexer/lexer.c"
 /*
  * PARTE 2 - DEFINIÇÕES DO FLEX 
  * Aqui nós dizemos ao Flex como lidar com linhas 
  * e definimos alguns estados e atalhos.
  */
 
-#line 559 "lexer.c"
+#line 559 "Lexer/lexer.c"
 
 #define INITIAL 0
 #define COMMENT 1
@@ -773,10 +773,10 @@ YY_DECL
 		}
 
 	{
-#line 22 "lexer.l"
+#line 22 "Lexer/lexer.l"
 
 
-#line 25 "lexer.l"
+#line 25 "Lexer/lexer.l"
  /* 
   * PARTE 3 - REGRAS LÉXICAS 
   * Aqui virão as nossas Expressões Regulares que transformarão
@@ -784,7 +784,7 @@ YY_DECL
   */
 
 
-#line 788 "lexer.c"
+#line 788 "Lexer/lexer.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -853,157 +853,157 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 32 "lexer.l"
+#line 32 "Lexer/lexer.l"
 { BEGIN(COMMENT); }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 33 "lexer.l"
+#line 33 "Lexer/lexer.l"
 { BEGIN(INITIAL); }
 	YY_BREAK
 case 3:
 /* rule 3 can match eol */
 YY_RULE_SETUP
-#line 34 "lexer.l"
+#line 34 "Lexer/lexer.l"
 { /* faz nada, mas nosso option yylineno incrementará a linha */ }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 35 "lexer.l"
+#line 35 "Lexer/lexer.l"
 { /* consome o lixo dentro do comentario */ }
 	YY_BREAK
 case YY_STATE_EOF(COMMENT):
-#line 36 "lexer.l"
+#line 36 "Lexer/lexer.l"
 { printf("ERRO: COMENTÁRIO NAO TERMINA %d\n", yylineno);
                       exit(1); }
 	YY_BREAK
 case 5:
 /* rule 5 can match eol */
 YY_RULE_SETUP
-#line 40 "lexer.l"
+#line 40 "Lexer/lexer.l"
 { /* Ignora espacos e quebras de linha */ }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 42 "lexer.l"
+#line 42 "Lexer/lexer.l"
 { return PRINCIPAL; }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 43 "lexer.l"
+#line 43 "Lexer/lexer.l"
 { return INT; }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 44 "lexer.l"
+#line 44 "Lexer/lexer.l"
 { return CAR; }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 45 "lexer.l"
+#line 45 "Lexer/lexer.l"
 { return LEIA; }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 46 "lexer.l"
+#line 46 "Lexer/lexer.l"
 { return ESCREVA; }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 47 "lexer.l"
+#line 47 "Lexer/lexer.l"
 { return NOVALINHA; }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 48 "lexer.l"
+#line 48 "Lexer/lexer.l"
 { return SE; }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 49 "lexer.l"
+#line 49 "Lexer/lexer.l"
 { return ENTAO; }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 50 "lexer.l"
+#line 50 "Lexer/lexer.l"
 { return SENAO; }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 51 "lexer.l"
+#line 51 "Lexer/lexer.l"
 { return FIMSE; }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 52 "lexer.l"
+#line 52 "Lexer/lexer.l"
 { return ENQUANTO; }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 53 "lexer.l"
+#line 53 "Lexer/lexer.l"
 { return OU; }
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 54 "lexer.l"
+#line 54 "Lexer/lexer.l"
 { return E; }
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 55 "lexer.l"
+#line 55 "Lexer/lexer.l"
 { return IGUAL; }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 56 "lexer.l"
+#line 56 "Lexer/lexer.l"
 { return DIFERENTE; }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 57 "lexer.l"
+#line 57 "Lexer/lexer.l"
 { return MAIORIGUAL; }
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 58 "lexer.l"
+#line 58 "Lexer/lexer.l"
 { return MENORIGUAL; }
 	YY_BREAK
 case 23:
-#line 61 "lexer.l"
+#line 61 "Lexer/lexer.l"
 case 24:
-#line 62 "lexer.l"
+#line 62 "Lexer/lexer.l"
 case 25:
-#line 63 "lexer.l"
+#line 63 "Lexer/lexer.l"
 case 26:
-#line 64 "lexer.l"
+#line 64 "Lexer/lexer.l"
 case 27:
-#line 65 "lexer.l"
+#line 65 "Lexer/lexer.l"
 case 28:
-#line 66 "lexer.l"
+#line 66 "Lexer/lexer.l"
 case 29:
-#line 67 "lexer.l"
+#line 67 "Lexer/lexer.l"
 case 30:
-#line 68 "lexer.l"
+#line 68 "Lexer/lexer.l"
 case 31:
-#line 69 "lexer.l"
+#line 69 "Lexer/lexer.l"
 case 32:
-#line 70 "lexer.l"
+#line 70 "Lexer/lexer.l"
 case 33:
-#line 71 "lexer.l"
+#line 71 "Lexer/lexer.l"
 case 34:
-#line 72 "lexer.l"
+#line 72 "Lexer/lexer.l"
 case 35:
-#line 73 "lexer.l"
+#line 73 "Lexer/lexer.l"
 case 36:
-#line 74 "lexer.l"
+#line 74 "Lexer/lexer.l"
 case 37:
 YY_RULE_SETUP
-#line 74 "lexer.l"
+#line 74 "Lexer/lexer.l"
 { return yytext[0]; }
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
-#line 76 "lexer.l"
+#line 76 "Lexer/lexer.l"
 { 
     yylval.str = strdup(yytext);
     return IDENTIFICADOR; 
@@ -1011,7 +1011,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 39:
 YY_RULE_SETUP
-#line 81 "lexer.l"
+#line 81 "Lexer/lexer.l"
 { 
     yylval.str = strdup(yytext);
     return INTCONST; 
@@ -1019,7 +1019,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 40:
 YY_RULE_SETUP
-#line 86 "lexer.l"
+#line 86 "Lexer/lexer.l"
 { 
     yylval.str = strdup(yytext);
     return CADEIACARACTERES; 
@@ -1028,13 +1028,13 @@ YY_RULE_SETUP
 case 41:
 /* rule 41 can match eol */
 YY_RULE_SETUP
-#line 91 "lexer.l"
+#line 91 "Lexer/lexer.l"
 { printf("ERRO: CADEIA DE CARACTERES OCUPA MAIS DE UMA LINHA %d\n", yylineno - 1); 
                       exit(1); }
 	YY_BREAK
 case 42:
 YY_RULE_SETUP
-#line 94 "lexer.l"
+#line 94 "Lexer/lexer.l"
 { 
     yylval.str = strdup(yytext);
     return CARCONST; 
@@ -1042,16 +1042,16 @@ YY_RULE_SETUP
 	YY_BREAK
 case 43:
 YY_RULE_SETUP
-#line 99 "lexer.l"
+#line 99 "Lexer/lexer.l"
 { printf("ERRO: CARACTERE INVÁLIDO %d\n", yylineno);
                       exit(1); }
 	YY_BREAK
 case 44:
 YY_RULE_SETUP
-#line 103 "lexer.l"
+#line 103 "Lexer/lexer.l"
 ECHO;
 	YY_BREAK
-#line 1055 "lexer.c"
+#line 1055 "Lexer/lexer.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -2068,7 +2068,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 103 "lexer.l"
+#line 103 "Lexer/lexer.l"
 
 
 /* 
