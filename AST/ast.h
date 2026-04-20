@@ -13,6 +13,7 @@ typedef enum {
     NODE_INTCONST,
     NODE_CARCONST,
     NODE_NOVALINHA, 
+    NODE_TIPO,
     NODE_OP
 } NodeType;
 

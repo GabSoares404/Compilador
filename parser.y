@@ -6,11 +6,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "AST/ast.h"
+#include "Semantic/semantic.h"
 
 extern int yylineno; /* Puxa a contagem de linhas do Flex */
 extern char* yytext; /* Puxa o texto lido pelo Flex */
 extern int yylex();  /* Invoca o motor do Flex */
 extern FILE *yyin;
+
+AST* ast_raiz = NULL; /* Onde guardaremos a árvore para repassar ao Analisador Semântico */
 
 void yyerror(const char *s);
 %}
@@ -41,7 +44,7 @@ void yyerror(const char *s);
  * PARTE 3 - REGRAS DE PRODUÇÃO (GRAMÁTICA)
  * AQUI VIRÃO AS REGRAS DA GRAMÁTICA G-V1 DA NOSSA LINGUAGEM!
  */
-Programa : DeclPrograma
+Programa : DeclPrograma { ast_raiz = $1; }
          ;
 
 DeclPrograma : PRINCIPAL Bloco { $$ = createNode(NODE_PROGRAMA, "principal", yylineno, $2, NULL, NULL); }
@@ -56,12 +59,12 @@ VarSection : '{' ListaDeclVar '}' { $$ = $2; }
 
 ListaDeclVar : IDENTIFICADOR DeclVar ':' Tipo ';' ListaDeclVar { 
                  AST* idNode = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
-                 AST* vars = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, $2, NULL);
+                 AST* vars = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, $2, $4);
                  $$ = createNode(NODE_DECL_VAR, "lista_var", yylineno, vars, $6, NULL);
              }
              | IDENTIFICADOR DeclVar ':' Tipo ';' {
                  AST* idNode = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
-                 $$ = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, $2, NULL);
+                 $$ = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, $2, $4);
              }
              ;
 
@@ -73,8 +76,8 @@ DeclVar : /* epsilon - vazio */     { $$ = NULL; }
         ;
 
 /* Dica: Tipos não precisam de nós soltos na AST compacta, a tabela de simbolos fará isso. Passamos NULL para focar nas variáveis apenas */
-Tipo : INT { $$ = NULL; }
-     | CAR { $$ = NULL; }
+Tipo : INT { $$ = createNode(NODE_TIPO, "int", yylineno, NULL, NULL, NULL); }
+     | CAR { $$ = createNode(NODE_TIPO, "car", yylineno, NULL, NULL, NULL); }
      ;
 
 ListaIds : ListaIds ',' IDENTIFICADOR { AST* idNode = createNode(NODE_IDENTIFICADOR, $3, yylineno, NULL, NULL, NULL); $$ = createNode(NODE_DECL_VAR, "ids", yylineno, $1, idNode, NULL); }
@@ -172,9 +175,21 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    yyparse(); /* Inicia a verificação de gramática! */
+    yyparse(); /* Inicia a montagem da Árvore AST! */
 
     fclose(yyin);
+    
+    // Verificamos se o g-v1 montou a Árvore Completa e obteve a Raiz sem erros
+    if (ast_raiz != NULL) {
+        // Inicializamos o motor de Escopos central
+        Stack tabelaDeSimbolos;
+        initStack(&tabelaDeSimbolos);
+        
+        printf("\n>>> Iniciando O CAMINHANTE SEMANTICO...\n");
+        checkSemantics(ast_raiz, &tabelaDeSimbolos);
+        
+        printf("\n>>> SUCESSO! O G-V1 compilou '%s' e nao encontrou \nnenhum erro Semantico, Sintatico ou Lexico na fita!\n", argv[1]);
+    }
+
     return 0;
 }
-

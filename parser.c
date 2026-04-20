@@ -76,15 +76,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "AST/ast.h"
+#include "Semantic/semantic.h"
 
 extern int yylineno; /* Puxa a contagem de linhas do Flex */
 extern char* yytext; /* Puxa o texto lido pelo Flex */
 extern int yylex();  /* Invoca o motor do Flex */
 extern FILE *yyin;
 
+AST* ast_raiz = NULL; /* Onde guardaremos a árvore para repassar ao Analisador Semântico */
+
 void yyerror(const char *s);
 
-#line 88 "parser.c"
+#line 91 "parser.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -557,12 +560,12 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,    44,    44,    47,    50,    51,    54,    57,    62,    68,
-      69,    76,    77,    84,    85,    88,    92,    93,    94,    98,
-      99,   100,   101,   102,   105,   108,   109,   112,   113,   116,
-     117,   118,   121,   122,   123,   124,   125,   128,   129,   130,
-     133,   134,   135,   138,   139,   140,   141,   144,   145,   146,
-     147,   148
+       0,    47,    47,    50,    53,    54,    57,    60,    65,    71,
+      72,    79,    80,    87,    88,    91,    95,    96,    97,   101,
+     102,   103,   104,   105,   108,   111,   112,   115,   116,   119,
+     120,   121,   124,   125,   126,   127,   128,   131,   132,   133,
+     136,   137,   138,   141,   142,   143,   144,   147,   148,   149,
+     150,   151
 };
 #endif
 
@@ -1463,318 +1466,324 @@ yyreduce:
   YY_REDUCE_PRINT (yyn);
   switch (yyn)
     {
-  case 3: /* DeclPrograma: PRINCIPAL Bloco  */
+  case 2: /* Programa: DeclPrograma  */
 #line 47 "parser.y"
+                        { ast_raiz = (yyvsp[0].node); }
+#line 1473 "parser.c"
+    break;
+
+  case 3: /* DeclPrograma: PRINCIPAL Bloco  */
+#line 50 "parser.y"
                                { (yyval.node) = createNode(NODE_PROGRAMA, "principal", yylineno, (yyvsp[0].node), NULL, NULL); }
-#line 1470 "parser.c"
+#line 1479 "parser.c"
     break;
 
   case 4: /* Bloco: '{' ListaComando '}'  */
-#line 50 "parser.y"
+#line 53 "parser.y"
                                          { (yyval.node) = createNode(NODE_BLOCO, "bloco", yylineno, NULL, (yyvsp[-1].node), NULL); }
-#line 1476 "parser.c"
+#line 1485 "parser.c"
     break;
 
   case 5: /* Bloco: VarSection '{' ListaComando '}'  */
-#line 51 "parser.y"
+#line 54 "parser.y"
                                          { (yyval.node) = createNode(NODE_BLOCO, "bloco_var", yylineno, (yyvsp[-3].node), (yyvsp[-1].node), NULL); }
-#line 1482 "parser.c"
+#line 1491 "parser.c"
     break;
 
   case 6: /* VarSection: '{' ListaDeclVar '}'  */
-#line 54 "parser.y"
+#line 57 "parser.y"
                                   { (yyval.node) = (yyvsp[-1].node); }
-#line 1488 "parser.c"
+#line 1497 "parser.c"
     break;
 
   case 7: /* ListaDeclVar: IDENTIFICADOR DeclVar ':' Tipo ';' ListaDeclVar  */
-#line 57 "parser.y"
+#line 60 "parser.y"
                                                                { 
                  AST* idNode = createNode(NODE_IDENTIFICADOR, (yyvsp[-5].str), yylineno, NULL, NULL, NULL);
-                 AST* vars = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, (yyvsp[-4].node), NULL);
+                 AST* vars = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, (yyvsp[-4].node), (yyvsp[-2].node));
                  (yyval.node) = createNode(NODE_DECL_VAR, "lista_var", yylineno, vars, (yyvsp[0].node), NULL);
-             }
-#line 1498 "parser.c"
-    break;
-
-  case 8: /* ListaDeclVar: IDENTIFICADOR DeclVar ':' Tipo ';'  */
-#line 62 "parser.y"
-                                                  {
-                 AST* idNode = createNode(NODE_IDENTIFICADOR, (yyvsp[-4].str), yylineno, NULL, NULL, NULL);
-                 (yyval.node) = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, (yyvsp[-3].node), NULL);
              }
 #line 1507 "parser.c"
     break;
 
+  case 8: /* ListaDeclVar: IDENTIFICADOR DeclVar ':' Tipo ';'  */
+#line 65 "parser.y"
+                                                  {
+                 AST* idNode = createNode(NODE_IDENTIFICADOR, (yyvsp[-4].str), yylineno, NULL, NULL, NULL);
+                 (yyval.node) = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, (yyvsp[-3].node), (yyvsp[-1].node));
+             }
+#line 1516 "parser.c"
+    break;
+
   case 9: /* DeclVar: %empty  */
-#line 68 "parser.y"
+#line 71 "parser.y"
                                     { (yyval.node) = NULL; }
-#line 1513 "parser.c"
+#line 1522 "parser.c"
     break;
 
   case 10: /* DeclVar: ',' IDENTIFICADOR DeclVar  */
-#line 69 "parser.y"
+#line 72 "parser.y"
                                     { 
              AST* idNode = createNode(NODE_IDENTIFICADOR, (yyvsp[-1].str), yylineno, NULL, NULL, NULL);
              (yyval.node) = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, (yyvsp[0].node), NULL);
         }
-#line 1522 "parser.c"
+#line 1531 "parser.c"
     break;
 
   case 11: /* Tipo: INT  */
-#line 76 "parser.y"
-           { (yyval.node) = NULL; }
-#line 1528 "parser.c"
+#line 79 "parser.y"
+           { (yyval.node) = createNode(NODE_TIPO, "int", yylineno, NULL, NULL, NULL); }
+#line 1537 "parser.c"
     break;
 
   case 12: /* Tipo: CAR  */
-#line 77 "parser.y"
-           { (yyval.node) = NULL; }
-#line 1534 "parser.c"
+#line 80 "parser.y"
+           { (yyval.node) = createNode(NODE_TIPO, "car", yylineno, NULL, NULL, NULL); }
+#line 1543 "parser.c"
     break;
 
   case 13: /* ListaComando: ListaComando Comando  */
-#line 84 "parser.y"
+#line 87 "parser.y"
                                      { (yyval.node) = createNode(NODE_LISTA_COMANDO, "comandos", yylineno, (yyvsp[-1].node), (yyvsp[0].node), NULL); }
-#line 1540 "parser.c"
+#line 1549 "parser.c"
     break;
 
   case 14: /* ListaComando: Comando  */
-#line 85 "parser.y"
+#line 88 "parser.y"
                                      { (yyval.node) = (yyvsp[0].node); }
-#line 1546 "parser.c"
+#line 1555 "parser.c"
     break;
 
   case 15: /* Comando: LEIA IDENTIFICADOR ';'  */
-#line 88 "parser.y"
+#line 91 "parser.y"
                                  { 
             AST* idNode = createNode(NODE_IDENTIFICADOR, (yyvsp[-1].str), yylineno, NULL, NULL, NULL);
             (yyval.node) = createNode(NODE_COMANDO, "leia", yylineno, idNode, NULL, NULL); 
         }
-#line 1555 "parser.c"
+#line 1564 "parser.c"
     break;
 
   case 16: /* Comando: ESCREVA Expr ';'  */
-#line 92 "parser.y"
+#line 95 "parser.y"
                            { (yyval.node) = createNode(NODE_COMANDO, "escreva", yylineno, (yyvsp[-1].node), NULL, NULL); }
-#line 1561 "parser.c"
+#line 1570 "parser.c"
     break;
 
   case 17: /* Comando: NOVALINHA ';'  */
-#line 93 "parser.y"
+#line 96 "parser.y"
                         { (yyval.node) = createNode(NODE_NOVALINHA, "novalinha", yylineno, NULL, NULL, NULL); }
-#line 1567 "parser.c"
+#line 1576 "parser.c"
     break;
 
   case 18: /* Comando: IDENTIFICADOR '=' Expr ';'  */
-#line 94 "parser.y"
+#line 97 "parser.y"
                                      { 
             AST* idNode = createNode(NODE_IDENTIFICADOR, (yyvsp[-3].str), yylineno, NULL, NULL, NULL);
             (yyval.node) = createNode(NODE_COMANDO, "=", yylineno, idNode, (yyvsp[-1].node), NULL); 
         }
-#line 1576 "parser.c"
+#line 1585 "parser.c"
     break;
 
   case 19: /* Comando: SE '(' Expr ')' ENTAO ListaComando FIMSE  */
-#line 98 "parser.y"
+#line 101 "parser.y"
                                                    { (yyval.node) = createNode(NODE_COMANDO, "se", yylineno, (yyvsp[-4].node), (yyvsp[-1].node), NULL); }
-#line 1582 "parser.c"
+#line 1591 "parser.c"
     break;
 
   case 20: /* Comando: SE '(' Expr ')' ENTAO ListaComando SENAO ListaComando FIMSE  */
-#line 99 "parser.y"
+#line 102 "parser.y"
                                                                       { (yyval.node) = createNode(NODE_COMANDO, "se_senao", yylineno, (yyvsp[-6].node), (yyvsp[-3].node), (yyvsp[-1].node)); }
-#line 1588 "parser.c"
+#line 1597 "parser.c"
     break;
 
   case 21: /* Comando: ENQUANTO '(' Expr ')' ListaComando  */
-#line 100 "parser.y"
+#line 103 "parser.y"
                                              { (yyval.node) = createNode(NODE_COMANDO, "enquanto", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1594 "parser.c"
+#line 1603 "parser.c"
     break;
 
   case 22: /* Comando: Bloco  */
-#line 101 "parser.y"
+#line 104 "parser.y"
                 { (yyval.node) = (yyvsp[0].node); }
-#line 1600 "parser.c"
+#line 1609 "parser.c"
     break;
 
   case 23: /* Comando: ';'  */
-#line 102 "parser.y"
+#line 105 "parser.y"
               { (yyval.node) = createNode(NODE_COMANDO, "vazio", yylineno, NULL, NULL, NULL); }
-#line 1606 "parser.c"
+#line 1615 "parser.c"
     break;
 
   case 24: /* Expr: OrExpr  */
-#line 105 "parser.y"
+#line 108 "parser.y"
               { (yyval.node) = (yyvsp[0].node); }
-#line 1612 "parser.c"
+#line 1621 "parser.c"
     break;
 
   case 25: /* OrExpr: OrExpr OU AndExpr  */
-#line 108 "parser.y"
+#line 111 "parser.y"
                            { (yyval.node) = createNode(NODE_OP, "||", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1618 "parser.c"
+#line 1627 "parser.c"
     break;
 
   case 26: /* OrExpr: AndExpr  */
-#line 109 "parser.y"
+#line 112 "parser.y"
                  { (yyval.node) = (yyvsp[0].node); }
-#line 1624 "parser.c"
+#line 1633 "parser.c"
     break;
 
   case 27: /* AndExpr: AndExpr E EqExpr  */
-#line 112 "parser.y"
+#line 115 "parser.y"
                            { (yyval.node) = createNode(NODE_OP, "&", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1630 "parser.c"
+#line 1639 "parser.c"
     break;
 
   case 28: /* AndExpr: EqExpr  */
-#line 113 "parser.y"
+#line 116 "parser.y"
                  { (yyval.node) = (yyvsp[0].node); }
-#line 1636 "parser.c"
+#line 1645 "parser.c"
     break;
 
   case 29: /* EqExpr: EqExpr IGUAL DesigExpr  */
-#line 116 "parser.y"
+#line 119 "parser.y"
                                 { (yyval.node) = createNode(NODE_OP, "==", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1642 "parser.c"
+#line 1651 "parser.c"
     break;
 
   case 30: /* EqExpr: EqExpr DIFERENTE DesigExpr  */
-#line 117 "parser.y"
+#line 120 "parser.y"
                                     { (yyval.node) = createNode(NODE_OP, "!=", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1648 "parser.c"
+#line 1657 "parser.c"
     break;
 
   case 31: /* EqExpr: DesigExpr  */
-#line 118 "parser.y"
+#line 121 "parser.y"
                    { (yyval.node) = (yyvsp[0].node); }
-#line 1654 "parser.c"
+#line 1663 "parser.c"
     break;
 
   case 32: /* DesigExpr: DesigExpr '<' AddExpr  */
-#line 121 "parser.y"
+#line 124 "parser.y"
                                   { (yyval.node) = createNode(NODE_OP, "<", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1660 "parser.c"
+#line 1669 "parser.c"
     break;
 
   case 33: /* DesigExpr: DesigExpr '>' AddExpr  */
-#line 122 "parser.y"
+#line 125 "parser.y"
                                   { (yyval.node) = createNode(NODE_OP, ">", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1666 "parser.c"
+#line 1675 "parser.c"
     break;
 
   case 34: /* DesigExpr: DesigExpr MAIORIGUAL AddExpr  */
-#line 123 "parser.y"
+#line 126 "parser.y"
                                          { (yyval.node) = createNode(NODE_OP, ">=", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1672 "parser.c"
+#line 1681 "parser.c"
     break;
 
   case 35: /* DesigExpr: DesigExpr MENORIGUAL AddExpr  */
-#line 124 "parser.y"
+#line 127 "parser.y"
                                          { (yyval.node) = createNode(NODE_OP, "<=", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1678 "parser.c"
+#line 1687 "parser.c"
     break;
 
   case 36: /* DesigExpr: AddExpr  */
-#line 125 "parser.y"
+#line 128 "parser.y"
                       { (yyval.node) = (yyvsp[0].node); }
-#line 1684 "parser.c"
+#line 1693 "parser.c"
     break;
 
   case 37: /* AddExpr: AddExpr '+' MulExpr  */
-#line 128 "parser.y"
+#line 131 "parser.y"
                               { (yyval.node) = createNode(NODE_OP, "+", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1690 "parser.c"
+#line 1699 "parser.c"
     break;
 
   case 38: /* AddExpr: AddExpr '-' MulExpr  */
-#line 129 "parser.y"
+#line 132 "parser.y"
                               { (yyval.node) = createNode(NODE_OP, "-", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1696 "parser.c"
+#line 1705 "parser.c"
     break;
 
   case 39: /* AddExpr: MulExpr  */
-#line 130 "parser.y"
+#line 133 "parser.y"
                               { (yyval.node) = (yyvsp[0].node); }
-#line 1702 "parser.c"
+#line 1711 "parser.c"
     break;
 
   case 40: /* MulExpr: MulExpr '*' UnExpr  */
-#line 133 "parser.y"
+#line 136 "parser.y"
                               { (yyval.node) = createNode(NODE_OP, "*", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1708 "parser.c"
+#line 1717 "parser.c"
     break;
 
   case 41: /* MulExpr: MulExpr '/' UnExpr  */
-#line 134 "parser.y"
+#line 137 "parser.y"
                               { (yyval.node) = createNode(NODE_OP, "/", yylineno, (yyvsp[-2].node), (yyvsp[0].node), NULL); }
-#line 1714 "parser.c"
+#line 1723 "parser.c"
     break;
 
   case 42: /* MulExpr: UnExpr  */
-#line 135 "parser.y"
+#line 138 "parser.y"
                               { (yyval.node) = (yyvsp[0].node); }
-#line 1720 "parser.c"
+#line 1729 "parser.c"
     break;
 
   case 43: /* UnExpr: '+' PrimExpr  */
-#line 138 "parser.y"
+#line 141 "parser.y"
                               { (yyval.node) = createNode(NODE_OP, "+", yylineno, NULL, (yyvsp[0].node), NULL); }
-#line 1726 "parser.c"
+#line 1735 "parser.c"
     break;
 
   case 44: /* UnExpr: '-' PrimExpr  */
-#line 139 "parser.y"
+#line 142 "parser.y"
                               { (yyval.node) = createNode(NODE_OP, "-", yylineno, NULL, (yyvsp[0].node), NULL); }
-#line 1732 "parser.c"
+#line 1741 "parser.c"
     break;
 
   case 45: /* UnExpr: '!' PrimExpr  */
-#line 140 "parser.y"
+#line 143 "parser.y"
                               { (yyval.node) = createNode(NODE_OP, "!", yylineno, NULL, (yyvsp[0].node), NULL); }
-#line 1738 "parser.c"
+#line 1747 "parser.c"
     break;
 
   case 46: /* UnExpr: PrimExpr  */
-#line 141 "parser.y"
+#line 144 "parser.y"
                               { (yyval.node) = (yyvsp[0].node); }
-#line 1744 "parser.c"
+#line 1753 "parser.c"
     break;
 
   case 47: /* PrimExpr: IDENTIFICADOR  */
-#line 144 "parser.y"
+#line 147 "parser.y"
                               { (yyval.node) = createNode(NODE_IDENTIFICADOR, (yyvsp[0].str), yylineno, NULL, NULL, NULL); }
-#line 1750 "parser.c"
+#line 1759 "parser.c"
     break;
 
   case 48: /* PrimExpr: INTCONST  */
-#line 145 "parser.y"
+#line 148 "parser.y"
                               { (yyval.node) = createNode(NODE_INTCONST, (yyvsp[0].str), yylineno, NULL, NULL, NULL); }
-#line 1756 "parser.c"
+#line 1765 "parser.c"
     break;
 
   case 49: /* PrimExpr: CARCONST  */
-#line 146 "parser.y"
+#line 149 "parser.y"
                               { (yyval.node) = createNode(NODE_CARCONST, (yyvsp[0].str), yylineno, NULL, NULL, NULL); }
-#line 1762 "parser.c"
+#line 1771 "parser.c"
     break;
 
   case 50: /* PrimExpr: CADEIACARACTERES  */
-#line 147 "parser.y"
+#line 150 "parser.y"
                               { (yyval.node) = createNode(NODE_CARCONST, (yyvsp[0].str), yylineno, NULL, NULL, NULL); }
-#line 1768 "parser.c"
+#line 1777 "parser.c"
     break;
 
   case 51: /* PrimExpr: '(' Expr ')'  */
-#line 148 "parser.y"
+#line 151 "parser.y"
                               { (yyval.node) = (yyvsp[-1].node); }
-#line 1774 "parser.c"
+#line 1783 "parser.c"
     break;
 
 
-#line 1778 "parser.c"
+#line 1787 "parser.c"
 
       default: break;
     }
@@ -1998,7 +2007,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 152 "parser.y"
+#line 155 "parser.y"
 
 
 /* 
@@ -2022,9 +2031,21 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    yyparse(); /* Inicia a verificação de gramática! */
+    yyparse(); /* Inicia a montagem da Árvore AST! */
 
     fclose(yyin);
+    
+    // Verificamos se o g-v1 montou a Árvore Completa e obteve a Raiz sem erros
+    if (ast_raiz != NULL) {
+        // Inicializamos o motor de Escopos central
+        Stack tabelaDeSimbolos;
+        initStack(&tabelaDeSimbolos);
+        
+        printf("\n>>> Iniciando O CAMINHANTE SEMANTICO...\n");
+        checkSemantics(ast_raiz, &tabelaDeSimbolos);
+        
+        printf("\n>>> SUCESSO! O G-V1 compilou '%s' e nao encontrou \nnenhum erro Semantico, Sintatico ou Lexico na fita!\n", argv[1]);
+    }
+
     return 0;
 }
-

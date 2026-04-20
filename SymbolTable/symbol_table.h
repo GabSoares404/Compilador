@@ -22,11 +22,12 @@ typedef struct Stack {
     int topo;
 } Stack;
 
-// ASSINATURAS DAS NOSSAS 5 FUNÇÕES MÁGICAS PARA O PRÓXIMO PASSO
+// ASSINATURAS DAS NOSSAS FUNÇÕES MÁGICAS PARA O PRÓXIMO PASSO
 void initStack(Stack* s);
 void pushScope(Stack* s);
 void popScope(Stack* s);
 void insertSymbol(Stack* s, char* nome, int tipo);
 Symbol* lookup(Stack* s, char* nome);
+Symbol* lookupCurrentScope(Stack* s, char* nome);
 
 #endif

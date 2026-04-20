@@ -7,9 +7,9 @@ CFLAGS = -Wall
 # A regra padrão apontará para criar o 'g-v1'
 all: g-v1
 
-# REGRA 1: Para criar 'g-v1', eu exijo ter 'lexer.c', 'parser.c', 'AST/ast.c' e 'SymbolTable/symbol_table.c'.
-g-v1: lexer.c parser.c AST/ast.c SymbolTable/symbol_table.c
-	$(CC) $(CFLAGS) -o g-v1 parser.c lexer.c AST/ast.c SymbolTable/symbol_table.c
+# REGRA 1: Para criar 'g-v1', eu exijo ter 'lexer.c', 'parser.c', 'AST/ast.c', 'SymbolTable/symbol_table.c' e 'Semantic/semantic.c'.
+g-v1: lexer.c parser.c AST/ast.c SymbolTable/symbol_table.c Semantic/semantic.c
+	$(CC) $(CFLAGS) -o g-v1 parser.c lexer.c AST/ast.c SymbolTable/symbol_table.c Semantic/semantic.c
 
 # REGRA 2: Para criar 'parser.c' e também seu parceiro 'parser.h' (usando o sinal -d), uso 'parser.y'
 parser.c parser.h: parser.y

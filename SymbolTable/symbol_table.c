@@ -68,3 +68,15 @@ Symbol* lookup(Stack* s, char* nome) {
     }
     return NULL; // Desceu a torre até o Zero, checou todas, e ela não existe! O usuário usou "a" sem declarar "a"!
 }
+
+// 6. Procura uma variável EXCLUSIVAMENTE no Escopo atual (Topo) para permitir Shadowing!
+Symbol* lookupCurrentScope(Stack* s, char* nome) {
+    if (s->topo < 0) return NULL;
+    
+    Symbol* var = s->tabelas[s->topo]->lista;
+    while (var != NULL) {
+        if (strcmp(var->nome, nome) == 0) return var;
+        var = var->next;
+    }
+    return NULL;
+}
