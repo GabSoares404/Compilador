@@ -159,5 +159,5 @@ Se quiser rodar o código, você pode usar o SPIM, um emulador levíssimo de Pla
 
 ```bash
 sudo apt-get install spim
-spim -file teste.g.s
+spim -file teste.s
 ```
