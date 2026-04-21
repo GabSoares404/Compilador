@@ -539,23 +539,48 @@ int yy_flex_debug = 0;
 char *yytext;
 #line 1 "Lexer/lexer.l"
 #line 2 "Lexer/lexer.l"
-/* 
- * PARTE 1 - DEFINIÇÕES C
- * Aqui importamos bibliotecas e declaramos variáveis globais 
- * que o nosso código em C precisará usar. 
+/* ============================================================================
+ * [EXPLICAÇÃO DO BLOCO] PARTE 1 - DEFINIÇÕES GLOBAIS EM C
+ * ============================================================================
+ * O QUE É: Este bloco cercado por '%{' e '%}' é uma área de injeção direta de código C.
+ * Tudo o que é escrito aqui é copiado integralmente pelo Flex para o topo
+ * do arquivo final 'lexer.c' sem sofrer alterações sintáticas visuais.
+ * 
+ * PARA QUE SERVE: Serve para importar bibliotecas padrão do sistema (como stdio e stdlib),
+ * incluir os cabeçalhos exportados pela fase seguinte (o nosso parser) e declarar funções
+ * ou variáveis essenciais para que as nossas interações léxicas possam compilar e funcionar.
+ * 
+ * COMO FUNCIONA: O Flex simplesmente copia isso para o topo do seu arquivo gerado.
+ * Notavelmente, incluímos "../Parser/parser.h", que foi gerado automaticamente pelo Bison.
+ * É graças a esse arquivo que temos acesso oficial aos IDs (números) dos Tokens que o 
+ * analisador Sintático espera receber (como as TAGS: PRINCIPAL, INT, CAR), bem como o 
+ * fundamental acesso à união em RAM inter-pastas chamada 'yylval'.
+ * ============================================================================
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include "../Parser/parser.h"
 #include <string.h>
-#line 552 "Lexer/lexer.c"
-/*
- * PARTE 2 - DEFINIÇÕES DO FLEX 
- * Aqui nós dizemos ao Flex como lidar com linhas 
- * e definimos alguns estados e atalhos.
- */
+#line 565 "Lexer/lexer.c"
+#line 27 "Lexer/lexer.l"
+ /* ============================================================================
+  * [EXPLICAÇÃO DO BLOCO] PARTE 2 - DEFINIÇÕES E CONFIGURAÇÕES DO FLEX
+  * ============================================================================
+  * O QUE É: Área de configuração das opções operacionais subjacentes da própria ferramenta Flex.
+  * 
+  * PARA QUE SERVE: Controlar o comportamento padrão comportamental e declarar chaves de estados nativos (como o estado de estar dentro de um comentário multi-linha).
+  * 
+  * COMO FUNCIONA: 
+  * - 'yylineno': Configura o Flex a manter automaticamente uma variável global 
+  *   chamada yylineno, incrementando-a silenciosamente a cada quebra de linha lida (\n).
+  * - 'noyywrap': Informa ao Flex de antemão que nós vamos processar apenas 1 único arquivo,
+  *   então ele não precisará engatilhar a função yywrap() pra tentar procurar novos arquivos na pasta.
+  * - '%x COMMENT': Cria um "Contexto ou Estado Exclusivo" na máquina Lexer chamado COMMENT. 
+  *   Este estado em exclusividade desabilita lógicas padrões vitais para permitirmos que o sistema ignore chaves limitrofanas e operações matemáticas perigosas se elas estiverem escritas dentro de comentários literais "/*".
+  * ============================================================================
+  */
 
-#line 559 "Lexer/lexer.c"
+#line 584 "Lexer/lexer.c"
 
 #define INITIAL 0
 #define COMMENT 1
@@ -773,18 +798,28 @@ YY_DECL
 		}
 
 	{
-#line 22 "Lexer/lexer.l"
+#line 47 "Lexer/lexer.l"
 
 
-#line 25 "Lexer/lexer.l"
- /* 
-  * PARTE 3 - REGRAS LÉXICAS 
-  * Aqui virão as nossas Expressões Regulares que transformarão
-  * os textos que estão no nosso arquivo em "Tokens"
+ /* ============================================================================
+  * [EXPLICAÇÃO DO BLOCO] PARTE 3 - REGRAS LÉXICAS E EXPRESSÕES REGULARES
+  * ============================================================================
+  * O QUE É: O coração operacional do Lexer. Uma lista formalizada de padrões que testamos exaustivamente no texto bruto processado no exato instante.
+  * 
+  * PARA QUE SERVE: Dita exatamente e cirurgicamente como cada token universal será moldado e extraído na fonte natural da escrita. 
+  * 
+  * COMO FUNCIONA: O projeto em C gerado pelo Flex lê caracteres de cima para baixo testando com a lista abaixo simultaneamente. Se houver duplo "match" nas regras, ele é projetado para sempre dar preferência a regra de maior extensão de caracteres de preenchimento (Grep guloso), ou então à regra atirada mais acima primeiro.
+  * Cada linha segue a anatomia: [EXPRESSÃO_REGULAR_A_TER_MATCH] { CÓDIGO_C_ENGATILHADO_A_EXECUTAR }
+  * Todo tag disparada no código abaixo a partir de 'return' será mandada instantaneamente sem delay para avaliação quem engatilhou o lexer no Parser_Loop.
+  * ============================================================================
   */
 
-
-#line 788 "Lexer/lexer.c"
+ /* 
+  * [EXPLICAÇÃO DA REGRA] 3.1 Tratamento Condicional de Comentários em Bloco 
+  * Entramos no estado exclusivo COMMENT quando achamos os caracteres puros de abertura de comentario em C (barra-asterisco). Estando na tag de estado COMMENT,
+  * ignoramos qualquer caractere que venha (.) através da função vazia de skip, exceto a finalização de fechamento asterisco-barra imperativa que devolve intencionalmente a Máquina ao seu normal (INITIAL). Se o compilador alcançar um EOF text (fim de arquivo abrupto) atrelados no modo comentário acionado, disparamos falha fatal.
+  */
+#line 823 "Lexer/lexer.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -853,205 +888,252 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 32 "Lexer/lexer.l"
+#line 67 "Lexer/lexer.l"
 { BEGIN(COMMENT); }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 33 "Lexer/lexer.l"
+#line 68 "Lexer/lexer.l"
 { BEGIN(INITIAL); }
 	YY_BREAK
 case 3:
 /* rule 3 can match eol */
 YY_RULE_SETUP
-#line 34 "Lexer/lexer.l"
-{ /* faz nada, mas nosso option yylineno incrementará a linha */ }
+#line 69 "Lexer/lexer.l"
+{ /* faz nada ignorando loop infinito, e nosso option yylineno incrementará localmente a linha sozinho */ }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 35 "Lexer/lexer.l"
-{ /* consome o lixo dentro do comentario */ }
+#line 70 "Lexer/lexer.l"
+{ /* consome o lixo dentro do comentário e recicla memória na ram ativamente */ }
 	YY_BREAK
 case YY_STATE_EOF(COMMENT):
-#line 36 "Lexer/lexer.l"
+#line 71 "Lexer/lexer.l"
 { printf("ERRO: COMENTÁRIO NAO TERMINA %d\n", yylineno);
                       exit(1); }
 	YY_BREAK
+/* 
+  * [EXPLICAÇÃO DA REGRA] 3.2 Descarte Grosseiro do Espaço Físico Limpo
+  * A regra com sinalização '+', devora agressivamente os espaços seguidamente ativados, engolindo silenciosamente os \t e pulos puros de arquivo \n como descarte descartado, para não interferir na geração linear em gramática.
+  */
 case 5:
 /* rule 5 can match eol */
 YY_RULE_SETUP
-#line 40 "Lexer/lexer.l"
-{ /* Ignora espacos e quebras de linha */ }
+#line 78 "Lexer/lexer.l"
+{ /* Ignora espacos e quebras de linha ativas */ }
 	YY_BREAK
+/* 
+  * [EXPLICAÇÃO DA REGRA] 3.3 Palavras Reservadas da Linguagem (Keywords Nativas G-V1) 
+  * Mapeamentos rígidos de formatações hardcoded atrelados. Mapeamos os literais estáticos exigidos pela folha do trabalho e devolvemos a porta de quem solicitou `yylex()` a etiqueta formativa gerada puramente originada nas declarações C (BISON).
+  */
 case 6:
 YY_RULE_SETUP
-#line 42 "Lexer/lexer.l"
+#line 84 "Lexer/lexer.l"
 { return PRINCIPAL; }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 43 "Lexer/lexer.l"
+#line 85 "Lexer/lexer.l"
 { return INT; }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 44 "Lexer/lexer.l"
+#line 86 "Lexer/lexer.l"
 { return CAR; }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 45 "Lexer/lexer.l"
+#line 87 "Lexer/lexer.l"
 { return LEIA; }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 46 "Lexer/lexer.l"
+#line 88 "Lexer/lexer.l"
 { return ESCREVA; }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 47 "Lexer/lexer.l"
+#line 89 "Lexer/lexer.l"
 { return NOVALINHA; }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 48 "Lexer/lexer.l"
+#line 90 "Lexer/lexer.l"
 { return SE; }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 49 "Lexer/lexer.l"
+#line 91 "Lexer/lexer.l"
 { return ENTAO; }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 50 "Lexer/lexer.l"
+#line 92 "Lexer/lexer.l"
 { return SENAO; }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 51 "Lexer/lexer.l"
+#line 93 "Lexer/lexer.l"
 { return FIMSE; }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 52 "Lexer/lexer.l"
+#line 94 "Lexer/lexer.l"
 { return ENQUANTO; }
 	YY_BREAK
+/* 
+  * [EXPLICAÇÃO DA REGRA] 3.4 Símbolos Estruturais Matemático/Lógicos Multicaractere Formativo
+  * Para que eles não disparessem a identificação de duplo "=" do Igual base ou duplo And em '&'. 
+  */
 case 17:
 YY_RULE_SETUP
-#line 53 "Lexer/lexer.l"
+#line 100 "Lexer/lexer.l"
 { return OU; }
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 54 "Lexer/lexer.l"
+#line 101 "Lexer/lexer.l"
 { return E; }
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 55 "Lexer/lexer.l"
+#line 102 "Lexer/lexer.l"
 { return IGUAL; }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 56 "Lexer/lexer.l"
+#line 103 "Lexer/lexer.l"
 { return DIFERENTE; }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 57 "Lexer/lexer.l"
+#line 104 "Lexer/lexer.l"
 { return MAIORIGUAL; }
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 58 "Lexer/lexer.l"
+#line 105 "Lexer/lexer.l"
 { return MENORIGUAL; }
 	YY_BREAK
+/* 
+  * [EXPLICAÇÃO DA REGRA] 3.5 Símbolos Estruturantes Individuais (Single Tokens Base)
+  * Retorna O PRÓPRIO Caractere puro cru ASCII resgatando-o no index inicial `0` instanciado livremente da área alocativa de `yytext`. 
+  * O sistema do Bison já foi devidamente formalizado como apto com a capacidade de interpretar diretrizes tokens textuais crus como '{' puro.
+  */
 case 23:
-#line 61 "Lexer/lexer.l"
+#line 113 "Lexer/lexer.l"
 case 24:
-#line 62 "Lexer/lexer.l"
+#line 114 "Lexer/lexer.l"
 case 25:
-#line 63 "Lexer/lexer.l"
+#line 115 "Lexer/lexer.l"
 case 26:
-#line 64 "Lexer/lexer.l"
+#line 116 "Lexer/lexer.l"
 case 27:
-#line 65 "Lexer/lexer.l"
+#line 117 "Lexer/lexer.l"
 case 28:
-#line 66 "Lexer/lexer.l"
+#line 118 "Lexer/lexer.l"
 case 29:
-#line 67 "Lexer/lexer.l"
+#line 119 "Lexer/lexer.l"
 case 30:
-#line 68 "Lexer/lexer.l"
+#line 120 "Lexer/lexer.l"
 case 31:
-#line 69 "Lexer/lexer.l"
+#line 121 "Lexer/lexer.l"
 case 32:
-#line 70 "Lexer/lexer.l"
+#line 122 "Lexer/lexer.l"
 case 33:
-#line 71 "Lexer/lexer.l"
+#line 123 "Lexer/lexer.l"
 case 34:
-#line 72 "Lexer/lexer.l"
+#line 124 "Lexer/lexer.l"
 case 35:
-#line 73 "Lexer/lexer.l"
+#line 125 "Lexer/lexer.l"
 case 36:
-#line 74 "Lexer/lexer.l"
+#line 126 "Lexer/lexer.l"
 case 37:
 YY_RULE_SETUP
-#line 74 "Lexer/lexer.l"
+#line 126 "Lexer/lexer.l"
 { return yytext[0]; }
 	YY_BREAK
+/* 
+  * [EXPLICAÇÃO DA REGRA] 3.6 Expressões Regulares Customizadas de Valor Agregável Váriavel 
+  * Servem para captar padrões onde o preenchimento irá influenciar no significado final. Precisam de acoplagem relacional na cópia extração String C!
+  */
+/* 
+  * [EXPLICAÇÃO EXTRA] Identificadores Padrões (Nomes de Variáveis em C/C++)
+  * Inicia regradamente atrelado por letras baseadas/[_], seguido sequencialmente infinito por numéricos alfa-letras base/[_]. 
+  * Importantíssimo processo: O código efetua `strdup()` forçando a alocação crua duradoura na ram e anexa o acesso em `yylval.str` viabilizando extração pura nas pastas sucessoras de Tabela SymTable e a própria Base C da AST. 
+  */
 case 38:
 YY_RULE_SETUP
-#line 76 "Lexer/lexer.l"
+#line 138 "Lexer/lexer.l"
 { 
     yylval.str = strdup(yytext);
     return IDENTIFICADOR; 
-    }
+}
 	YY_BREAK
+/* 
+  * [EXPLICAÇÃO EXTRA] Números Matemáticos Formato Inteiros Base10 
+  * Processa e requer 1 ou incontabilizando quantia numeral sequencial restritos matemáticos em (+). 
+  */
 case 39:
 YY_RULE_SETUP
-#line 81 "Lexer/lexer.l"
+#line 147 "Lexer/lexer.l"
 { 
     yylval.str = strdup(yytext);
     return INTCONST; 
-    }
+}
 	YY_BREAK
+/* 
+  * [EXPLICAÇÃO EXTRA] Cadeia Extensiva String Textual em Limitação Unifásica ("texto restrito")
+  * Exige Iniciar-se na detecção aspas puríssima (\"), devorando a seguir livremente qualquer continuação que (NÃO seja \n quebra) e acoberta obrigue-se a estagnar em (\").
+  */
 case 40:
 YY_RULE_SETUP
-#line 86 "Lexer/lexer.l"
+#line 156 "Lexer/lexer.l"
 { 
     yylval.str = strdup(yytext);
     return CADEIACARACTERES; 
-    }
+}
 	YY_BREAK
+/* 
+  * [EXPLICAÇÃO EXTRA] Detecção De Fuga Linear - Falsa Cadeia Malformada sem limitante
+  * O Lexer detecta se as aspas originais cruzam indevidas uma quebra de limitação (`\n`) disparando barreira impeditiva e matando localmente a tradução Lexer do motor C.
+  */
 case 41:
 /* rule 41 can match eol */
 YY_RULE_SETUP
-#line 91 "Lexer/lexer.l"
+#line 165 "Lexer/lexer.l"
 { printf("ERRO: CADEIA DE CARACTERES OCUPA MAIS DE UMA LINHA %d\n", yylineno - 1); 
                       exit(1); }
 	YY_BREAK
+/* 
+  * [EXPLICAÇÃO EXTRA] Caractere Primitivo Físico Formato ('t')
+  * Requer isoladamente aspas simples textuais, suporta enclausuramentos especiais restritos como o `\n` interno isolados ou corpo de `1` byte estrito (`.`), findando sob a opressiva simples ('`). 
+  */
 case 42:
 YY_RULE_SETUP
-#line 94 "Lexer/lexer.l"
+#line 172 "Lexer/lexer.l"
 { 
     yylval.str = strdup(yytext);
     return CARCONST; 
-    }
+}
 	YY_BREAK
+/* 
+  * [EXPLICAÇÃO DA REGRA] 3.7 A Sentinela Lixeira Externa Customizada em Ponto Final ('.') Lexo
+  * A premissa central final do LEX. Se o caractere da fita não cruze positivamente (dê "Match") de fato com a totalidade sequencial prévia testada referencial acima dele, ele forçosamente cairá submetido aqui por regra temporal do Flex (Último recurso wildcard dot '.').
+  * Isso desmascara instantaneamente no prompt que um caractere lixo ou proibido (como um `$` ou o `@`) em G-V1 foi lido. Traz o `exit(1)` punitivo logando com a linha final.
+  */
 case 43:
 YY_RULE_SETUP
-#line 99 "Lexer/lexer.l"
+#line 182 "Lexer/lexer.l"
 { printf("ERRO: CARACTERE INVÁLIDO %d\n", yylineno);
                       exit(1); }
 	YY_BREAK
 case 44:
 YY_RULE_SETUP
-#line 103 "Lexer/lexer.l"
+#line 186 "Lexer/lexer.l"
 ECHO;
 	YY_BREAK
-#line 1055 "Lexer/lexer.c"
+#line 1137 "Lexer/lexer.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -2068,11 +2150,17 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 103 "Lexer/lexer.l"
+#line 186 "Lexer/lexer.l"
 
 
-/* 
- * PARTE 4 - CÓDIGO C ADICIONAL (Opcional)
- * (Geralmente deixamos em branco, pois a função main ficará no Bison)
- */
+ /* ============================================================================
+  * [EXPLICAÇÃO DO BLOCO] PARTE 4 - CÓDIGO C ADICIONAL LIVRE DA FERRAMENTA EXPRESSÃO REGULAR
+  * ============================================================================
+  * Tudo contido estruturalmente abaixo visual do "%%" nunca sofrerá análises de pré
+  * processamento ou injeções pela ferramenta construtora do Autômato Determinístico do C (Flex). 
+  * Geralmente trata-se puramente como espaço propício logado para criação de métodos e 
+  * construtores lógicos suplementares a engrenar na Lex (yyerror de Lex, yyprints em dumps.. etc), 
+  * todavia o Bison é nosso MasterCaller que agirá abrigando as execuções, mantendo a limpeza de arquivo.
+  * ============================================================================
+  */
 

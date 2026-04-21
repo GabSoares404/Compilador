@@ -3,147 +3,214 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Contador universal para a emissão contínua de labels do MIPS
+// Variável global usada para criar IDs únicos nos rótulos (labels) do Assembly MIPS
 int label_count = 0;
 
-// DESCRIÇÃO: Função Auxiliar que varre a AST na ramificação de declarações (var x, y;)
-// Ela insere essas variáveis na Tabela de Símbolos garantindo que ganhem uma 'Posição' (pos) contínua para MIPS.
+/* ============================================================================
+ * IMPLEMENTAÇÃO DO GERADOR DE CÓDIGO (.C)
+ * ============================================================================
+ * O QUE FAZ:
+ * Transforma a Árvore Sintática Abstrata (AST) do compilador C em código
+ * final na linguagem de máquina Assembly MIPS.
+ * 
+ * COMO FUNCIONA:
+ * O código gerado segue a arquitetura de "Máquina de Pilha" (Stack Machine):
+ * - O registrador `$s0` é usado como ACUMULADOR (guarda resultados temporários).
+ * - A pilha da memória (`$sp`) guarda o lado esquerdo das expressões matemáticas.
+ * - O Frame Pointer (`$fp`) é usado como base fixa para localizar variáveis.
+ * ============================================================================
+ */
+
+
+/* 
+ * ----------------------------------------------------------------------------
+ * 1. ALOCAÇÃO DE VARIÁVEIS NA MEMÓRIA (extrairVariaveisMIPS)
+ * ----------------------------------------------------------------------------
+ * O QUE FAZ:
+ * Lê as variáveis recém-declaradas na AST e as coloca na Tabela de Símbolos
+ * temporariamente, garantindo que o compilador lhes dê um endereço (offset) no MIPS.
+ */
 void extrairVariaveisMIPS(AST* nodeIds, Stack* scopes) {
     if (nodeIds == NULL) return;
+    
     AST* varNode = nodeIds->left;
     if (varNode != NULL && varNode->type == NODE_IDENTIFICADOR) {
-        insertSymbol(scopes, varNode->lexema, 0); // O 'tipo' aqui nao importa. So a Posicão MIPS
+        // O tipo não importa para o Gerador (todas as variáveis ocupam 4 bytes).
+        // Isso apenas força a tabela a dar um novo 'pos_livre' para a variável.
+        insertSymbol(scopes, varNode->lexema, 0); 
     }
+    
+    // Continua lendo a lista de variáveis
     extrairVariaveisMIPS(nodeIds->right, scopes);
 }
 
-// DESCRIÇÃO: O Coração Matemático (Expression Generator). 
-// Serve para processar as Equações da G-V1 transformando-as em arquitetura de "Máquina de Pilha" do MIPS.
-// Ele calcula e sempre guarda o resultado no Acumulador ($s0), usando a Pilha ($sp) como memória provisória.
+
+/* 
+ * ----------------------------------------------------------------------------
+ * 2. GERAÇÃO DE EXPRESSÕES MATEMÁTICAS (cgenEx)
+ * ----------------------------------------------------------------------------
+ * O QUE FAZ:
+ * Resolve nós de cálculo lendo os valores da esquerda e da direita.
+ * 
+ * COMO FUNCIONA (Máquina de Pilha na prática):
+ * 1. Calcula o lado esquerdo e EMPILHA o resultado (usa a `$sp`).
+ * 2. Calcula o lado direito e guarda o resultado direto no `$s0` (Acumulador).
+ * 3. DESEMPILHA o resultado esquerdo para um registrador temporário (`$t1`).
+ * 4. Executa a conta final (ex: add $s0, $t1, $s0).
+ */
 void cgenEx(AST* expr, FILE* out, Stack* scopes) {
     if (!expr) return;
 
     if (expr->type == NODE_INTCONST || expr->type == NODE_CARCONST) {
-        // Caso Base 1: Se for um número solto ou caractere ('c', 5), ele carrega no Acumulador
-        fprintf(out, "\t# Lendo valor primitivo: %s\n", expr->lexema);
+        // CASO 1: Constante (número ou caractere avulso)
+        // O 'li' (Load Immediate) carrega o valor fixo direto no acumulador $s0.
+        fprintf(out, "\t# Lendo constante primitiva: %s\n", expr->lexema);
         fprintf(out, "\tli $s0, %s\n", expr->lexema);
     } 
     else if (expr->type == NODE_IDENTIFICADOR) {
-        // Caso Base 2: É uma variável! Consultamos onde ela está escondida no FP e puxamos
+        // CASO 2: Leitura de Variável
         Symbol* var = lookup(scopes, expr->lexema);
         if (var) {
+            // Em MIPS, variáveis de 32-bits ocupam 4 bytes.
+            // Multiplica o ID sequencial da variável por 4 para achar o offset negativo do Frame.
             int offset = -(var->pos * 4);
-            fprintf(out, "\t# Lendo variavel %s\n", expr->lexema);
+            fprintf(out, "\t# Lendo variavel %s do endereco %d($fp)\n", expr->lexema, offset);
             fprintf(out, "\tlw $s0, %d($fp)\n", offset);
         }
     } 
     else if (expr->type == NODE_OP) {
-        // Caso Recursivo: Sinal de Operação!
         
-        // 1. Tratando OPEradores UNÁRIOS (Ex: !x, -5). O nó só tem o lado direito preenchido
+        // --- CASO 3a: Operador Unário (só existe o lado direito) ---
         if (expr->left == NULL && expr->right != NULL) {
-            cgenEx(expr->right, out, scopes); // Ex: Avalia o número 5 pro $s0
+            cgenEx(expr->right, out, scopes); 
+            
             if (strcmp(expr->lexema, "-") == 0) {
-                fprintf(out, "\tneg $s0, $s0\n"); // Inverte o sinal pra Negativo
+                fprintf(out, "\tneg $s0, $s0\n"); // Inverte conta (Negativo)
             } else if (strcmp(expr->lexema, "!") == 0) {
-                fprintf(out, "\tseq $s0, $s0, 0\n"); // Negação Lógica (Se 0 vira 1, se não, 0)
+                fprintf(out, "\tseq $s0, $s0, 0\n"); // Inversor Lógico (Not)
             }
-            return; // Terminou o Operatório Unário, vai pro próximo galho da recursidade.
+            return;
         }
 
-        // 2. Tratando OPERADORES BINÁRIOS! A Famosa RECEITA da Máquina de Pilha
-        fprintf(out, "\t# [Operador %s]: Avaliando lado Esquerdo\n", expr->lexema);
+        // --- CASO 3b: Operações Binárias Normais (+, -, ==, &&) ---
+        fprintf(out, "\t# [Operador %s]: Processando lado Esquerdo\n", expr->lexema);
         cgenEx(expr->left, out, scopes); 
         
-        fprintf(out, "\t# Empilhando esquerdo de (%s)\n", expr->lexema);
-        fprintf(out, "\tsw $s0, 0($sp)\n");
-        fprintf(out, "\taddiu $sp, $sp, -4\n");
+        // Passo 1 da Máquina de Pilha: Salva o esquerdo temporariamente na pilha (em $sp).
+        fprintf(out, "\t# Empilhando valor esquerdo do operador (%s)\n", expr->lexema);
+        fprintf(out, "\taddiu $sp, $sp, -4\n");  // Move a pilha 4 bytes para trás ANTES de salvar (protege as variáveis)
+        fprintf(out, "\tsw $s0, 0($sp)\n");      // Grava $s0 na nova gaveta segura da pilha
         
-        fprintf(out, "\t# [Operador %s]: Avaliando lado Direito\n", expr->lexema);
+        fprintf(out, "\t# [Operador %s]: Processando lado Direito\n", expr->lexema);
         cgenEx(expr->right, out, scopes);
         
-        fprintf(out, "\t# Desempilhando pra efetuar calculo com Direito ($s0)\n");
-        fprintf(out, "\tlw $t1, 4($sp)\n");
-        fprintf(out, "\taddiu $sp, $sp, 4\n");
+        // Passo 2 da Máquina de Pilha: Puxa o esquerdo de volta mas joga no $t1.
+        fprintf(out, "\t# Desempilhando valor para calculo final\n");
+        fprintf(out, "\tlw $t1, 0($sp)\n");     // Lê o valor que estava salvo de volta para o $t1
+        fprintf(out, "\taddiu $sp, $sp, 4\n");  // Devolve a pilha para a base original
 
-        // 3. O embate final: Unindo as peças da Balança ($t1 operando $s0)
+        // Passo 3 da Máquina de Pilha: Operação Assembly correspondente  (resultado no $s0).
         if (strcmp(expr->lexema, "+") == 0) fprintf(out, "\tadd $s0, $t1, $s0\n");
         else if (strcmp(expr->lexema, "-") == 0) fprintf(out, "\tsub $s0, $t1, $s0\n");
         else if (strcmp(expr->lexema, "*") == 0) fprintf(out, "\tmul $s0, $t1, $s0\n");
         else if (strcmp(expr->lexema, "/") == 0) fprintf(out, "\tdiv $s0, $t1, $s0\n");
+        // Lógica Relacional (Menor/Maior/Igual)
         else if (strcmp(expr->lexema, "<") == 0) fprintf(out, "\tslt $s0, $t1, $s0\n");
         else if (strcmp(expr->lexema, ">") == 0) fprintf(out, "\tsgt $s0, $t1, $s0\n");
         else if (strcmp(expr->lexema, "<=") == 0) fprintf(out, "\tsle $s0, $t1, $s0\n");
         else if (strcmp(expr->lexema, ">=") == 0) fprintf(out, "\tsge $s0, $t1, $s0\n");
         else if (strcmp(expr->lexema, "==") == 0) fprintf(out, "\tseq $s0, $t1, $s0\n");
         else if (strcmp(expr->lexema, "!=") == 0) fprintf(out, "\tsne $s0, $t1, $s0\n");
+        // Lógica AND/OR
         else if (strcmp(expr->lexema, "||") == 0) {
-            fprintf(out, "\tor $s0, $t1, $s0\n");     // Junta tudo
-            fprintf(out, "\tsne $s0, $s0, 0\n");      // Força a saída a ser só 1 ou 0 real
+            fprintf(out, "\tor $s0, $t1, $s0\n");     
+            fprintf(out, "\tsne $s0, $s0, 0\n");  // Força o resultado para booleano puro (1 ou 0)
         }
         else if (strcmp(expr->lexema, "&") == 0) {
-            fprintf(out, "\tsne $t1, $t1, 0\n");      // Limpa pra Booleanos Perfeitos
-            fprintf(out, "\tsne $s0, $s0, 0\n");
+            fprintf(out, "\tsne $t1, $t1, 0\n");      
+            fprintf(out, "\tsne $s0, $s0, 0\n"); 
             fprintf(out, "\tand $s0, $t1, $s0\n"); 
         }
+        
         fprintf(out, "\t# [Fim Operador %s]\n", expr->lexema);
     }
 }
 
-// DESCRIÇÃO: Macro para Estruturas Condicionais (SE / SENÃO).
-// Serve para disparar a verificação matemática e, com base nela (0 falso, 1 verdadeiro), 
-// desviar o código usando SALTOS (branchs) pulando blocos de execução MIPS se falhar.
+
+/* 
+ * ----------------------------------------------------------------------------
+ * 3. DESVIO CONDICIONAL (cgenIf)
+ * ----------------------------------------------------------------------------
+ * O QUE FAZ:
+ * Controla os blocos "Se / Senao", escrevendo Rótulos de Salto (Branches) no MIPS.
+ */
 void cgenIf(AST* left, AST* right, AST* extra, FILE* out, Stack* scopes) {
-    int lbl = label_count++;
+    int lbl = label_count++; // Cria um número de label contínuo para evitar duplicatas no arquivo
     
-    // 1. Avalia a Condição e guarda no $s0
+    // Resolve a condição matemática (ex: (a > 5)). O resultado vai ficar no $s0 (0=Falso, 1=Verdadeiro)
     cgenEx(left, out, scopes); 
     
     if (extra == NULL) {
-        // [IF SIMPLES] Se $s0 for falso (0), pula direto pro fim do bloco
-        fprintf(out, "\tbeq $s0, $zero, fim_if_%d\n", lbl);
-        cgenCmd(right, out, scopes); // Código do IF (THEN)
+        // [IF SIMPLES] 
+        // Se o $s0 for falso (0), ele "salta" ignorando o bloco THEN e vai pro fim.
+        fprintf(out, "\tbeq $s0, $zero, fim_if_%d\n", lbl); 
+        cgenCmd(right, out, scopes); // Escreve o código interno do bloco THEN
         fprintf(out, "fim_if_%d:\n", lbl);
     } else {
-        // [IF-ELSE] Se falso, pula pro Senão
+        // [IF-ELSE] 
+        // Se $s0 for falso, ele desvia para a label correspondente ao bloco ELSE.
         fprintf(out, "\tbeq $s0, $zero, senao_%d\n", lbl);
         
-        cgenCmd(right, out, scopes); // Código do THEN
-        fprintf(out, "\tj fim_if_%d\n", lbl); // Evita executar o Senão
+        cgenCmd(right, out, scopes); // Escreve bloco THEN
+        
+        // Um IF nunca roda o Else no mesmo fluxo, então forçamos um Jump incondicional pro Fim.
+        fprintf(out, "\tj fim_if_%d\n", lbl); 
         
         fprintf(out, "senao_%d:\n", lbl);
-        cgenCmd(extra, out, scopes); // Código do ELSE
+        cgenCmd(extra, out, scopes); // Escreve bloco ELSE
         
         fprintf(out, "fim_if_%d:\n", lbl);
     }
 }
 
-// DESCRIÇÃO: Macro para Laços de Repetição (ENQUANTO).
-// Parecido com o if, porém forçando um JUMP contínuo de volta à âncora inicial,
-// até que o Acumulador indique que a condição reprovou e quebre o ciclo indo pro Fim.
+
+/* 
+ * ----------------------------------------------------------------------------
+ * 4. LAÇOS DE REPETIÇÃO CICLICA (cgenWhile)
+ * ----------------------------------------------------------------------------
+ * O QUE FAZ:
+ * Organiza rótulos contínuos para manter a execução travada repetindo até 
+ * falhar a condição.
+ */
 void cgenWhile(AST* left, AST* right, FILE* out, Stack* scopes) {
     int lbl = label_count++;
     
+    // Label fixa onde os elos recursivos sempre vão bater a cabeça
     fprintf(out, "inicio_while_%d:\n", lbl);
     
-    // 1. Condição do Laço
+    // Analisa a condição do bloco loop de novo (O $s0 vira 0 ou 1)
     cgenEx(left, out, scopes);
     
-    // 2. Quebra o laço se falhar (pula lá pro final)
+    // Se condição for Falsa, ele vaza pulando a label inteira
     fprintf(out, "\tbeq $s0, $zero, fim_while_%d\n", lbl);
     
-    // 3. Executa o cerne do código (Lista de Comandos de dentro do While)
+    // Processa linha a linha todos os comandos internos do laço
     cgenCmd(right, out, scopes);
     
-    // 4. Volta automaticamente pra re-testar
+    // Final do bloco: pula de volta imediatamente pro início (Jump puro).
     fprintf(out, "\tj inicio_while_%d\n", lbl);
     
     fprintf(out, "fim_while_%d:\n", lbl);
 }
 
-// DESCRIÇÃO: O Caminhante do Ciclo de Vida MIPS (Command Generator)
-// Ele vasculha a AST detectando e alocando Blocos Variáveis, e distribuindo as tarefas
-// (Se for uma Atribuição salva em $fp, se for Syscall gera leitura/escrita com $v0).
+
+/* 
+ * ----------------------------------------------------------------------------
+ * 5. CONVERSOR CENTRAL DA ÁRVORE (cgenCmd)
+ * ----------------------------------------------------------------------------
+ * O QUE FAZ:
+ * Lê qualquer Comando estrutural da AST e despacha a emissão correta do MIPS.
+ */
 void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
     if (!cmd) return;
 
@@ -155,61 +222,68 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
         case NODE_COMANDO:
             // --- A. ATRIBUIÇÃO ---
             if (strcmp(cmd->lexema, "=") == 0) {
-                // Acha de onde a variável herda sua Posição global!
+                // Acha o deslocamento da variável alvo na tabela de Símbolos.
                 Symbol* var = lookup(scopes, cmd->left->lexema);
                 if (var) {
-                    cgenEx(cmd->right, out, scopes); // Roda toda a equação que existe no Lado Direito pro $s0
-                    int offset = -(var->pos * 4);
-                    fprintf(out, "\t# Guardando variavel alterada: %s\n", var->nome);
-                    fprintf(out, "\tsw $s0, %d($fp)\n", offset);
+                    // Resolve primeiro a conta inteira para guardar tudo pronto no acumulador ($s0)
+                    cgenEx(cmd->right, out, scopes); 
+                    
+                    int offset = -(var->pos * 4); 
+                    fprintf(out, "\t# Atualizando variavel %s\n", var->nome);
+                    fprintf(out, "\tsw $s0, %d($fp)\n", offset); // Grava a palavra originada no $s0 para endereço de RAM do offset.
                 }
             } 
-            // --- B. CONDICIONAL (IF) ---
+            // --- B. CONDICIONAL (SE) ---
             else if (strcmp(cmd->lexema, "se") == 0 || strcmp(cmd->lexema, "se_senao") == 0) {
                 cgenIf(cmd->left, cmd->right, cmd->extra, out, scopes);
             }
-            // --- C. LAÇO (WHILE) ---
+            // --- C. LAÇO (ENQUANTO) ---
             else if (strcmp(cmd->lexema, "enquanto") == 0) {
                 cgenWhile(cmd->left, cmd->right, out, scopes);
             }
-            // --- D. LEIA ---
+            // --- D. FUNÇÃO LEIA ---
             else if (strcmp(cmd->lexema, "leia") == 0) {
                 Symbol* var = lookup(scopes, cmd->left->lexema);
                 if (var) {
                     int offset = -(var->pos * 4);
-                    fprintf(out, "\t# Syscall [5] - Leia Int do Teclado\n");
+                    // Syscall código 5: Lê inteiro digitado do teclado gravando no $v0
+                    fprintf(out, "\t# Chamada syscall 5 - Ler Inteiro\n");
                     fprintf(out, "\tli $v0, 5\n");
                     fprintf(out, "\tsyscall\n");
-                    fprintf(out, "\tsw $v0, %d($fp)\n", offset); // Transfere do $v0 fixo pra gaveta dela!
+                    fprintf(out, "\tsw $v0, %d($fp)\n", offset); // Transfere a resposta para a gaveta local do MIPS
                 }
             }
-            // --- E. ESCREVA ---
+            // --- E. FUNÇÃO ESCREVA ---
             else if (strcmp(cmd->lexema, "escreva") == 0) {
-                // Se for um bloco inteiro de texto (String Literal): "Olá Mundo!"
+                // Checa se o usuário mandou imprimir uma palavra literal aspas (Ex: escreva "Hello")
                 if (cmd->left->type == NODE_CARCONST && cmd->left->lexema[0] == '\"') {
                     int str_lbl = label_count++;
+                    
+                    // Coloca de propósito na seção .data para criar a String estática (Asciiz)
                     fprintf(out, "\t.data\n");
                     fprintf(out, "str_lit_%d:\n", str_lbl);
                     fprintf(out, "\t.asciiz %s\n", cmd->left->lexema);
                     fprintf(out, "\t.text\n");
                     
-                    fprintf(out, "\t# Syscall [4] - Escreva Cadeia Literaria\n");
+                    // Syscall código 4: Imprime textos alocados string base apontados pelo $a0
+                    fprintf(out, "\t# Chamada syscall 4 - Escrever Texto Literal\n");
                     fprintf(out, "\tli $v0, 4\n");
                     fprintf(out, "\tla $a0, str_lit_%d\n", str_lbl);
                     fprintf(out, "\tsyscall\n");
                 }  
                 else {
-                    // Qualquer outra coisa (Inteiros ou variáveis processadas puras)
-                    cgenEx(cmd->left, out, scopes); // Puxa pro $s0 (Se A=2 puxa 2, se 'c'=x puxa ASCII(c))
+                    // Impressões Numéricas ou de Variáveis 
+                    cgenEx(cmd->left, out, scopes); 
                     
-                    // Se for caractere forte detectado ('C'), exigirá o tipo de print 11  
+                    // Se for caractere forte (Ex: 'A' em pascal), usa syscall 11. 
+                    // Do contrário, todas as contas matemáticas caem na syscall 1 (Inteiro)
                     if (cmd->left->type == NODE_CARCONST && cmd->left->lexema[0] == '\'') {
-                        fprintf(out, "\t# Syscall [11] - Imprime Caractere Unico\n");
+                        fprintf(out, "\t# Chamada syscall 11 - Caractere Unico\n");
                         fprintf(out, "\tli $v0, 11\n");
                         fprintf(out, "\tmove $a0, $s0\n");
                         fprintf(out, "\tsyscall\n");
                     } else {
-                        fprintf(out, "\t# Syscall [1] - Imprime Inteiros\n");
+                        fprintf(out, "\t# Chamada syscall 1 - Imprimir Inteiro\n");
                         fprintf(out, "\tli $v0, 1\n");
                         fprintf(out, "\tmove $a0, $s0\n");
                         fprintf(out, "\tsyscall\n");
@@ -220,6 +294,7 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
         
         case NODE_NOVALINHA: {
             int nl_lbl = label_count++;
+            // Imprime forçadamente quebras de linha '\n' pelo console.
             fprintf(out, "\t.data\n");
             fprintf(out, "nl_lit_%d:\n", nl_lbl);
             fprintf(out, "\t.asciiz \"\\n\"\n");
@@ -231,28 +306,29 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
         }
 
         case NODE_BLOCO:
-            // 1. Cria a bandeja de escopo novo
+            // Abre novo escopo local na árvore
             pushScope(scopes);
             
-            // 2. Lemos as variáveis do escopo pra calcular quanto de Pilha descer
+            // Guarda referencial do peso da pilha antido para poder abater o tamanho final perfeitamente MIPS
             int posLivreAntiga = scopes->pos_livre;
-            cgenCmd(cmd->left, out, scopes); // Isso chamará os cases de NODE_DECL_VAR abaixo!
+            cgenCmd(cmd->left, out, scopes); 
             
+            // Computa quantos itens novos foram declarados neste novo escopo ({int a; int b;) e desce a Pilha $SP para criar memória vazia (-4 bytes p/ cada int)
             int varsDeclaradas = scopes->pos_livre - posLivreAntiga;
             if (varsDeclaradas > 0) {
-                fprintf(out, "\t# Alocando %d Variaveis Locais na Pilha\n", varsDeclaradas);
-                fprintf(out, "\taddiu $sp, $sp, -%d\n", varsDeclaradas * 4);
+                fprintf(out, "\t# Reservando %d variaveis locais na Pilha MIPS\n", varsDeclaradas);
+                fprintf(out, "\taddiu $sp, $sp, -%d\n", varsDeclaradas * 4); 
             }
 
-            // 3. Lê o miolo de código
+            // Descida contínua processando os comandos (Ifs, Maths, etc)
             cgenCmd(cmd->right, out, scopes); 
             
-            // 4. Joga a bandeja fora na saída
+            // Reverte bloco, matando o escopo
             popScope(scopes);
             break;
 
         case NODE_DECL_VAR:
-            // Re-insere as Variáveis pra engatilhar e adquirir a Posição Global delas
+            // Faz um rastreio MIPS pra setar Offsets negativos na listagem das variáveis achadas lá em cima.
             if (strcmp(cmd->lexema, "lista_var") == 0) {
                 extrairVariaveisMIPS(cmd->left, scopes);
                 cgenCmd(cmd->right, out, scopes);
@@ -268,9 +344,16 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
     }
 }
 
-// DESCRIÇÃO: Função Principal (Entry Point do Gerador).
-// Serve para criar o arquivo .s final, configurar o prologo (.text) e o Frame Pointer da Função principal.
-// Roda o empurrão inicial da esteira de Comandos enviando a Raiz.
+
+/* 
+ * ----------------------------------------------------------------------------
+ * 6. PONTO DE ENTRADA DO GERADOR (generateCode)
+ * ----------------------------------------------------------------------------
+ * O QUE FAZ:
+ * Função principal acessada externamente pelo main().
+ * Cria o arquivo `.s` novo, escreve as metadatas iniciais (Prólogo MIPS) e 
+ * dá boot na travessia da AST.
+ */
 void generateCode(AST* root, Stack* scopes, const char* out_filename) {
     FILE* out = fopen(out_filename, "w");
     if (!out) {
@@ -278,28 +361,23 @@ void generateCode(AST* root, Stack* scopes, const char* out_filename) {
         exit(1);
     }
 
-    printf("\n[GERACAO DE CODIGO] >>> Iniciando traducao MIPS...\n");
-
-    // 1. Cabeçalho MIPS Padrão
+    // Marcações MIPS (Data Segment e Main Entrypoint Globais)
     fprintf(out, ".text\n");
     fprintf(out, ".globl main\n");
     fprintf(out, "main:\n");
 
-    // 2. Ancorar o Frame Pointer do MIPS
+    // Equalização Limítrofe: Faz com que o MIPS copie o endereço base que estava na Pilha $SP para ser nosso topo oficial imutável de Offset $FP.
     fprintf(out, "\tmove $fp, $sp\n\n");
 
-    // 3. Reiniciar a bateria da Tabela de Símbolos, 
-    // pois o Semântico a usou e o Gerador vai usá-la denovo para indexar Memória Real (pos)
+    // Reinicia o offset de memória que foi usado pelo passo semântico, restaurando-o para uso físico no Code Gen.
     initStack(scopes);
 
-    // 4. Invocar o caminhante mor que engole Comandos
     cgenCmd(root, out, scopes);
 
-    // 5. Finalizador (Instrução Syscall Exit no Arquivo Gerado)
-    fprintf(out, "\n# Sair do Programa (Syscall Exit 10)\n");
+    // Sistema Syscall: Operador '10' requisita interrupção estática limpa fechando processo logado no emulador SPIM MIPS
+    fprintf(out, "\n# Sair do Programa MIPS (Exit)\n");
     fprintf(out, "\tli $v0, 10\n");
     fprintf(out, "\tsyscall\n");
 
     fclose(out);
-    printf("[GERACAO DE CODIGO] >>> Codigo MIPS finalizado e salvo com SUCESSO!\n");
 }

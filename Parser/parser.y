@@ -1,7 +1,20 @@
 %{
-/* 
- * PARTE 1 - DEFINIÇÕES C
- * Variáveis globais contendo a linha do flex, o motor e bibliotecas. 
+/* ============================================================================
+ * [EXPLICAÇÃO DO BLOCO] PARTE 1 - DEFINIÇÕES C GLOBAIS E IMPORTAÇÕES
+ * ============================================================================
+ * O QUE É: Este cabeçalho delimitado entre '%{' e '%}' injeta código direto em C 
+ * no futuro arquivo 'parser.tab.c' gerado automaticamente pelo Bison.
+ * 
+ * PARA QUE SERVE: Estabelece as pontes de comunicação vital do projeto. Ele liga 
+ * o Motor Matemático Sintático (Bison) às bibliotecas auxiliares, importa os Nodes 
+ * da Árvore de Sintaxe (AST) e possibilita a inserção das assinaturas globais 
+ * requeridas (como funções Semânticas e o Gerador de Código).
+ * 
+ * COMO FUNCIONA: Durante a geração `.c`, o Bison transcreve esse bloco ao topo. 
+ * As diretivas 'extern' são cruciais: Elas exigem permissão do Sistema Operacional 
+ * para acessar a RAM indexada pelo 'Lexer', escancarando acesso às strings brutas lidas 
+ * no 'yytext' e aos logs de falha na contagem ativa do 'yylineno'.
+ * ============================================================================
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,42 +23,217 @@
 #include "../Semantic/semantic.h"
 #include "../GeradorCodigo/codegen.h"
 
-extern int yylineno; /* Puxa a contagem de linhas do Flex */
-extern char* yytext; /* Puxa o texto lido pelo Flex */
-extern int yylex();  /* Invoca o motor do Flex */
-extern FILE *yyin;
+extern int yylineno; /* Puxa a contagem de linhas do motor do Flex */
+extern char* yytext; /* Compartilhamento de string crua lida pelo Flex */
+extern int yylex();  /* Assinatura para que o Bison invoque o motor de busca do Flex */
+extern FILE *yyin;   /* Ponteiro do buffer de arquivo injetado */
 
-AST* ast_raiz = NULL; /* Onde guardaremos a árvore para repassar ao Analisador Semântico */
+AST* ast_raiz = NULL; /* Instância Matriz (Root) repassada ao Semântico e C-Gen ao fim */
 
-void yyerror(const char *s);
+void yyerror(const char *s); /* Assinatura protótipo pra avisos impiedosos de crashes Sintáticos */
 %}
 
-/*
- * PARTE 2 - DEFINIÇÕES DO BISON E TOKENS
- * Aqui declaramos configurações e listamos todos os tokens gerados pelo Lexer.
+/* ============================================================================
+ * [EXPLICAÇÃO DO BLOCO] PARTE 2 - DEFINIÇÕES DO BISON (TOKENS E METADADOS)
+ * ============================================================================
+ * O QUE É: O mapa tipográfico e estruturação de permissões de montagem do LALR.
+ * 
+ * PARA QUE SERVE: Lista todas as entidades que o Parser pode aceitar. É aqui
+ * que ensinamos o C estrutural a diferenciar quais tipos de varíaveis (Tipagem)
+ * pertencem aos Nós da Gramática (Terminais X Não-Terminais).
+ * 
+ * COMO FUNCIONA: 
+ * - '%define parse.error verbose': Ativa depuração inteligente exigindo que o C 
+ *   imprima no prompt *o que ele esperava ter lido* ao invés de um erro curto genérico.
+ * - '%union': A mais complexa união de memória volátil C. Como nós e strings viajam
+ *   em caminhos independentes, o union cria o objeto central 'yylval' com múltiplas opções
+ *   permitindo que o Lexer mande textos ('str'), e o próprio Bison trafegue 
+ *   Nodes complexos ('node').
+ * - '%token': Folhas da árvore (Letras primárias e fixas injetadas do Flex).
+ * - '%type': Partes Ramificadas criadas (Obriga as reduções do Bison a sempre
+ *   armazenarem nós `AST node` na pilha estruturada, permitindo amarrações ascendentes).
+ * ============================================================================
  */
 %define parse.error verbose
 %union {
-    char* str;    /* Compartimento para textos soltos do Flex */
-    struct AST* node; /* Compartimento para os nossos Nós Árvore */
+    char* str;        /* Compartimento para capturas textuais soltas extraídas do Flex */
+    struct AST* node; /* Compartimento alocado para os complexos Nós Árvore da RAM */
 }
-/* AQUI DECLARAREMOS NOSSOS TOKENS */
 
+/* 
+ * [EXPLICAÇÃO DA REGRA] TOKENS TERMINAIS 
+ * Componentes básicos imutáveis retornados do Flex. Os marcados com "<str>" exigem 
+ * uso prioritário de resgate com 'yylval.str'.
+ */
 %token PRINCIPAL INT CAR LEIA ESCREVA NOVALINHA SE ENTAO SENAO FIMSE ENQUANTO
 %token OU E IGUAL DIFERENTE MAIORIGUAL MENORIGUAL
 %token <str> IDENTIFICADOR INTCONST CADEIACARACTERES CARCONST
 
-/* Obriga as suas regras da gramática inteira a usarem as caixas do compartimento de nós */
+/* 
+ * [EXPLICAÇÃO DA REGRA] TOKENS NÃO-TERMINAIS (NÓS CONSTRUTORES) 
+ * Entidades lógicas abstratas gramaticais engatilhadores. A regra "<node>" barra falhas, 
+ * exigindo sob erro fatal que eles emitam e se liguem à infraestrutura global da AST.
+ */
 %type <node> Programa DeclPrograma Bloco VarSection ListaDeclVar DeclVar Tipo ListaIds ListaComando Comando Expr OrExpr AndExpr EqExpr DesigExpr AddExpr MulExpr UnExpr PrimExpr
 
+/* Aponta a Raiz mor primária a qual a gramática precisa reduzir até satisfazer 100% o PC */
 %start Programa
+
+/* ============================================================================
+ * [EXPLICAÇÃO DO BLOCO] PARTE 3 - REGRAS DE PRODUÇÃO (COMO LER O CÓDIGO BISON)
+ * ============================================================================
+ * O QUE É: este bloco (entre os '%%') define a gramática da linguagem usando
+ * a sintaxe do Bison. Aqui está literalmente "a linguagem" que o compilador aceita.
+ *
+ * ----------------------------------------------------------------------------
+ * COMO LER A ESTRUTURA DO CÓDIGO:
+ *
+ * Tudo aqui segue um padrão fixo:
+ *
+ *     NomeRegra : produção1 { ação }
+ *               | produção2 { ação }
+ *               ;
+ *
+ * Ou seja:
+ * - Antes dos dois pontos ':' → é o nome da regra (o "não-terminal")
+ * - Depois dos ':' → são as possíveis formas válidas dessa regra
+ * - O '|' → significa "ou" (alternativas)
+ * - O ';' → encerra a definição da regra
+ * - O bloco '{ ... }' → é código C executado quando aquela produção é reconhecida
+ *
+ * Pense assim: o lado esquerdo "vira" o lado direito quando a regra casa.
+ *
+ * ----------------------------------------------------------------------------
+ * SOBRE OS SÍMBOLOS USADOS:
+ *
+ * -> NÃO-TERMINAIS:
+ *    São nomes como `Programa`, `Bloco`, `Expr`, etc.
+ *    Eles representam estruturas da linguagem (conceitos abstratos).
+ *
+ * -> TERMINAIS:
+ *    São tokens vindos do Lexer, como:
+ *    `IDENTIFICADOR`, `INT`, `'{'`, `'+'`, etc.
+ *    Eles são os elementos "reais" do texto do programa.
+ *
+ * ----------------------------------------------------------------------------
+ * SOBRE AS CHAVES `{ ... }`:
+ *
+ * As chaves NÃO fazem parte da gramática — elas delimitam código C.
+ *
+ * Esse código é executado no momento em que o parser reconhece aquela regra.
+ * É aqui que você constrói a AST, faz validações, etc.
+ *
+ * Exemplo:
+ *
+ *     A : B C { $$ = createNode(..., $1, $2); }
+ *
+ * Significa:
+ * - Quando B seguido de C for reconhecido,
+ * - execute esse código C,
+ * - e produza um resultado (`$$`).
+ *
+ * ----------------------------------------------------------------------------
+ * SOBRE `$1`, `$2`, `$$`:
+ *
+ * Esses símbolos representam valores dentro da regra:
+ *
+ * - `$1` → primeiro item do lado direito
+ * - `$2` → segundo item
+ * - `$3` → terceiro...
+ * - `$$` → resultado final da regra (lado esquerdo)
+ *
+ * Exemplo:
+ *
+ *     Expr : Expr '+' Expr
+ *
+ * Aqui:
+ * - `$1` = Expr da esquerda
+ * - `$2` = '+'
+ * - `$3` = Expr da direita
+ *
+ * E normalmente:
+ *
+ *     $$ = createNode(..., $1, $3);
+ *
+ * ----------------------------------------------------------------------------
+ * SOBRE O FLUXO (COMO O PARSER PENSA):
+ *
+ * O Bison usa o modelo shift-reduce (bottom-up):
+ *
+ * 1. Ele lê tokens do Lexer
+ * 2. Empilha esses tokens
+ * 3. Quando a sequência bate com alguma regra → ele reduz
+ * 4. Executa o código `{ ... }`
+ * 5. Substitui aquela sequência pelo resultado (`$$`)
+ *
+ * Isso continua até reduzir tudo para `Programa`.
+ *
+ * ----------------------------------------------------------------------------
+ * COMO INTERPRETAR AS REGRAS DO ARQUIVO:
+ *
+ * -> `Programa`:
+ *    É a regra inicial. Tudo precisa virar isso no final.
+ *
+ * -> `DeclPrograma`:
+ *    Define o formato obrigatório do programa principal.
+ *
+ * -> `Bloco`:
+ *    Sempre leia como:
+ *        '{' ... '}'
+ *    Ou seja, delimitador de escopo.
+ *
+ * -> `ListaDeclVar`:
+ *    Quando você vê uma regra chamando ela mesma:
+ *
+ *        ListaDeclVar : ... ListaDeclVar
+ *
+ *    isso é recursão → significa "lista de tamanho arbitrário".
+ *
+ * -> `DeclVar` com epsilon:
+ *
+ *        | /* vazio *
+ *
+ *    Isso significa: "pode não ter nada".
+ *    É o que permite parar listas.
+ *
+ * -> `Comando`:
+ *    Cada linha com '|' é uma forma diferente de comando válido.
+ *    Leia como várias opções possíveis.
+ *
+ * ----------------------------------------------------------------------------
+ * SOBRE A PRECEDÊNCIA (Expr → PrimExpr):
+ *
+ * A ordem das regras define a precedência:
+ *
+ * - Quanto mais "embaixo" no arquivo, maior a prioridade
+ * - Quanto mais "em cima", menor a prioridade
+ *
+ * Hierarquia prática:
+ *
+ * PrimExpr   → base (valores, identificadores, parênteses)
+ * UnExpr     → unários (+, -, !)
+ * MulExpr    → * /
+ * AddExpr    → + -
+ * DesigExpr  → < > <= >=
+ * EqExpr     → == !=
+ * AndExpr    → &&
+ * OrExpr     → ||
+ *
+ * Isso funciona porque o parser reduz primeiro o que está mais "profundo".
+ *
+ * ----------------------------------------------------------------------------
+ * RESUMO MENTAL PRA LER QUALQUER REGRA:
+ *
+ * Sempre leia assim:
+ *
+ * "Se eu encontrar [lado direito], então eu posso reduzir para [lado esquerdo],
+ * executando [código C] e produzindo [$$]."
+ *
+ * ============================================================================
+ */
 
 %%
 
-/* 
- * PARTE 3 - REGRAS DE PRODUÇÃO (GRAMÁTICA)
- * AQUI VIRÃO AS REGRAS DA GRAMÁTICA G-V1 DA NOSSA LINGUAGEM!
- */
 Programa : DeclPrograma { ast_raiz = $1; }
          ;
 
@@ -70,14 +258,13 @@ ListaDeclVar : IDENTIFICADOR DeclVar ':' Tipo ';' ListaDeclVar {
              }
              ;
 
-DeclVar : /* epsilon - vazio */     { $$ = NULL; }
+DeclVar : /* epsilon - engate vazio opcional permitindo cancelamento do laço */     { $$ = NULL; }
         | ',' IDENTIFICADOR DeclVar { 
              AST* idNode = createNode(NODE_IDENTIFICADOR, $2, yylineno, NULL, NULL, NULL);
              $$ = createNode(NODE_DECL_VAR, "ids", yylineno, idNode, $3, NULL);
         }
         ;
 
-/* Dica: Tipos não precisam de nós soltos na AST compacta, a tabela de simbolos fará isso. Passamos NULL para focar nas variáveis apenas */
 Tipo : INT { $$ = createNode(NODE_TIPO, "int", yylineno, NULL, NULL, NULL); }
      | CAR { $$ = createNode(NODE_TIPO, "car", yylineno, NULL, NULL, NULL); }
      ;
@@ -102,8 +289,8 @@ Comando : LEIA IDENTIFICADOR ';' {
         }
         | SE '(' Expr ')' ENTAO ListaComando FIMSE { $$ = createNode(NODE_COMANDO, "se", yylineno, $3, $6, NULL); }
         | SE '(' Expr ')' ENTAO ListaComando SENAO ListaComando FIMSE { $$ = createNode(NODE_COMANDO, "se_senao", yylineno, $3, $6, $8); }
-        | ENQUANTO '(' Expr ')' ListaComando { $$ = createNode(NODE_COMANDO, "enquanto", yylineno, $3, $5, NULL); }
-        | Bloco { $$ = $1; }
+        | ENQUANTO '(' Expr ')' Comando { $$ = createNode(NODE_COMANDO, "enquanto", yylineno, $3, $5, NULL); }
+        | Bloco { $$ = $1; } 
         | ';' { $$ = createNode(NODE_COMANDO, "vazio", yylineno, NULL, NULL, NULL); }
         ;
 
@@ -156,9 +343,23 @@ PrimExpr : IDENTIFICADOR      { $$ = createNode(NODE_IDENTIFICADOR, $1, yylineno
 
 %%
 
-/* 
- * PARTE 4 - CÓDIGO C ADICIONAL
- * Crianção da função main() para iniciar o arquivo e a função yyerror()
+/* ============================================================================
+ * [EXPLICAÇÃO DO BLOCO] PARTE 4 - MÓDULO EXECUTIVO ADICIONAL (MAIN E LOGS)
+ * ============================================================================
+ * O QUE É: As peças gerenciais em puro C atreladas as execuções de fluxo final do software.
+ * 
+ * PARA QUE SERVE: Engatilha o ponto de ignição (Startpoint) do Software Compilador e 
+ * arquiteta e documenta as falhas detectadas caso elas surjam. Adicionalmente atua 
+ * acoplando as três fases inteiras de pós-ast (Tabela Ram -> DFS Sym -> Geração em IO).
+ * 
+ * COMO FUNCIONA: O projeto começa em 'main()', abrindo o arquivo `.g` via IO do kernel ('fopen').
+ * Logo engatilha o loop em 'yyparse()' que consome Lexer com o fluxo Shift-Reduce ativo.
+ * Caso yyparse traga sucesso, a Main desperta e inicia o caminhante 'checkSemantics' 
+ * repassando à ele a Tabela 'Stack' nova em folha. Com o atestado semântico em 'ok', a compilação
+ * funde-se e flui no arquivo elétrico chamando e imprimindo o 'generateCode()'.
+ * Se no meio da jornada do 'yyparse()' a gramática falhar irrecuperavelmente, 
+ * o gatilho automático interno em 'yyerror' chuta no terminal e estilhaça a execução inteira do processo.
+ * ============================================================================
  */
 void yyerror(const char *s) {
     printf("ERRO: %s %d\n", s, yylineno);
@@ -177,13 +378,13 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    yyparse(); /* Inicia a montagem da Árvore AST! */
+    yyparse(); /* Inicia a montagem da Árvore AST em fluxo iterativo! */
 
     fclose(yyin);
     
-    // Verificamos se o g-v1 montou a Árvore Completa e obteve a Raiz sem erros
+    /* Verificamos se o Bison montou a Árvore Completa e entregou a Raiz imaculada */
     if (ast_raiz != NULL) {
-        // Inicializamos o motor de Escopos central
+        /* Inicializamos estaticamente o motor de Escopos central LIFO */
         Stack tabelaDeSimbolos;
         initStack(&tabelaDeSimbolos);
         
@@ -192,10 +393,20 @@ int main(int argc, char **argv) {
         
         printf("\n>>> SUCESSO! O G-V1 compilou '%s' e nao encontrou \nnenhum erro Semantico, Sintatico ou Lexico na fita!\n", argv[1]);
         
-        // --- INICIANDO ETAPA DE GERAÇÃO DE CÓDIGO (MIPS) ---
-        // Vamos fabricar a string de saída salvando em nome_do_arquivo.g.s
+        /* --- INICIANDO ETAPA DE GERAÇÃO DE CÓDIGO FINAL (MIPS ASSEMBLY) --- */
+        /* Fabricando o nome do arquivo de saída: removemos a extensão original (.g) e injetamos a nova (.s) */
         char out_nome[256];
-        snprintf(out_nome, sizeof(out_nome), "%s.s", argv[1]);
+        strncpy(out_nome, argv[1], sizeof(out_nome) - 3); /* Copia de forma segura com margem pra concatenação */
+        out_nome[sizeof(out_nome) - 3] = '\0';
+        
+        /* Buscamos o último ponto '.' de trás pra frente no nome fornecido */
+        char *ponto = strrchr(out_nome, '.');
+        if (ponto != NULL) {
+            *ponto = '\0'; /* Cortamos a string exatamente aqui ignorando o .g final */
+        }
+        
+        /* Anexamos a extensão pura do Assembly MIPS e gravamos */
+        strncat(out_nome, ".s", sizeof(out_nome) - strlen(out_nome) - 1);
         
         generateCode(ast_raiz, &tabelaDeSimbolos, out_nome);
     }
