@@ -94,7 +94,7 @@ O pipeline de compilação segue o modelo prático de tradução sequencial. Cad
 
   * **Para que serve:** ela faz a ponte entre a lógica do compilador e a execução na máquina-alvo. Depois que a análise sintática e semântica confirmam que o programa está correto, o gerador converte essa estrutura em instruções MIPS equivalentes, prontas para serem executadas por um simulador como o SPIM.
 
-  Isso inclui traduzir expressões, comandos condicionais, laços, leituras, escritas e demais operações da linguagem para instruções compatíveis com a arquitetura MIPS de 32 bits.
+    Isso inclui traduzir expressões, comandos condicionais, laços, leituras, escritas e demais operações da linguagem para instruções compatíveis com a arquitetura MIPS de 32 bits.
 
   * **Como funciona:** a geração de código acontece com base na AST e nas informações já validadas pelas etapas anteriores. A partir daí, o compilador percorre a árvore e converte cada construção da linguagem para sua forma em Assembly.
 
