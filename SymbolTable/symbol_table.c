@@ -6,6 +6,7 @@
 // 1. Inicia a torre de pratos zerada
 void initStack(Stack* s) {
     s->topo = -1;
+    s->pos_livre = 1; // Segundo a simulação MIPS dita, variáveis assumirão (-pos*4) do $fp. Inicia no slot 1.
 }
 
 // 2. Bateu numa Chave '{': Pega um prato novo e põe na pilha
@@ -45,6 +46,7 @@ void insertSymbol(Stack* s, char* nome, int tipo) {
     Symbol* novavar = (Symbol*)malloc(sizeof(Symbol));
     novavar->nome = strdup(nome);
     novavar->tipo = tipo;
+    novavar->pos = s->pos_livre++; // Adquire a Posição Dinâmica atual, e sobe pra próxima em escada
 
     // Conecta na corrente. Ela toma a vanguarda e empurra a lista velha pro ponteiro 'next'
     novavar->next = s->tabelas[s->topo]->lista;

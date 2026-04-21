@@ -1,0 +1,11 @@
+principal 
+{
+   a, b : int;
+}
+{
+   a = 15;
+   b = a + 5;
+   escreva "O resultado eh: ";
+   escreva b;
+   novalinha;
+}

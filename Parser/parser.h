@@ -83,7 +83,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 26 "Parser/parser.y"
+#line 28 "Parser/parser.y"
 
     char* str;    /* Compartimento para textos soltos do Flex */
     struct AST* node; /* Compartimento para os nossos Nós Árvore */

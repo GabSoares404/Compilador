@@ -5,8 +5,10 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "../AST/ast.h"
 #include "../Semantic/semantic.h"
+#include "../GeradorCodigo/codegen.h"
 
 extern int yylineno; /* Puxa a contagem de linhas do Flex */
 extern char* yytext; /* Puxa o texto lido pelo Flex */
@@ -189,6 +191,13 @@ int main(int argc, char **argv) {
         checkSemantics(ast_raiz, &tabelaDeSimbolos);
         
         printf("\n>>> SUCESSO! O G-V1 compilou '%s' e nao encontrou \nnenhum erro Semantico, Sintatico ou Lexico na fita!\n", argv[1]);
+        
+        // --- INICIANDO ETAPA DE GERAÇÃO DE CÓDIGO (MIPS) ---
+        // Vamos fabricar a string de saída salvando em nome_do_arquivo.g.s
+        char out_nome[256];
+        snprintf(out_nome, sizeof(out_nome), "%s.s", argv[1]);
+        
+        generateCode(ast_raiz, &tabelaDeSimbolos, out_nome);
     }
 
     return 0;

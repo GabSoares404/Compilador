@@ -8,6 +8,7 @@
 typedef struct Symbol {
     char* nome;
     int tipo; // Receberá a etiqueta de Int ou Car lá do Bison
+    int pos;  // Posição calculada para ser traduzida em endereço MIPS (-pos * 4) do Frame Pointer
     struct Symbol* next; // Ponteiro para a próxima variável da mesma lista
 } Symbol;
 
@@ -20,6 +21,7 @@ typedef struct SymbolTable {
 typedef struct Stack {
     SymbolTable* tabelas[MAX_ESCOPOS];
     int topo;
+    int pos_livre; // Controlador de offset físico consecutivo pra arquitetura MIPS
 } Stack;
 
 // ASSINATURAS DAS NOSSAS FUNÇÕES MÁGICAS PARA O PRÓXIMO PASSO
