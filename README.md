@@ -147,7 +147,7 @@ Agora jogue esse arquivo para o Compilador, usando o terminal:
 ./g-v1 teste.g
 ```
 
-Se as suas chaves tiverem no lugar, a tela vai printar um **SUCESSO** grandão informando que não houve erros de grafia. Agora olhe dentro da sua pasta novamente... O Compilador cuspiu o arquivo **`teste.g.s`**. 
+Se as suas chaves tiverem no lugar, a tela vai printar um **SUCESSO** grandão informando que não houve erros de grafia. Agora olhe dentro da sua pasta novamente... O Compilador cuspiu o arquivo **`teste.s`**. 
 
 Esse novo arquivo abriga os comandos MIPS `li`, `add` e `syscall`. 
 
