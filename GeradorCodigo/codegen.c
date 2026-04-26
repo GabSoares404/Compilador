@@ -216,6 +216,9 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
 
     switch (cmd->type) {
         case NODE_PROGRAMA:
+            /* [MODIFICACAO] Escopo global unico ativado para acompanhar a alteracao
+             * do analisador semantico. Mantem todas as variaveis indexadas linearmente. */
+            pushScope(scopes);
             cgenCmd(cmd->left, out, scopes);
             break;
 
@@ -306,8 +309,10 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
         }
 
         case NODE_BLOCO:
-            // Abre novo escopo local na árvore
-            pushScope(scopes);
+            /* [MODIFICACAO] Abertura e fechamento de novos escopos locais foram 
+             * desativados para unificar a gestao de memoria. Variaveis de blocos 
+             * internos nao sao "esquecidas" pela pilha. */
+            // pushScope(scopes);
             
             // Guarda referencial do peso da pilha antido para poder abater o tamanho final perfeitamente MIPS
             int posLivreAntiga = scopes->pos_livre;
@@ -323,8 +328,8 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
             // Descida contínua processando os comandos (Ifs, Maths, etc)
             cgenCmd(cmd->right, out, scopes); 
             
-            // Reverte bloco, matando o escopo
-            popScope(scopes);
+            // Reverte bloco, matando o escopo (Desativado)
+            // popScope(scopes);
             break;
 
         case NODE_DECL_VAR:

@@ -130,20 +130,24 @@ void checkSemantics(AST* node, Stack* scopes) {
 
         case NODE_PROGRAMA:
             initStack(scopes);
+            /* [MODIFICACAO] Cria um unico escopo global. Promove todas as variaveis 
+             * declaradas em qualquer bloco interno a ficarem vivas ate o fim da execucao. */
+            pushScope(scopes);
             checkSemantics(node->left, scopes);
             break;
 
         case NODE_BLOCO:
             printf("[SEMANTICA] Entrando em um bloco na linha %d...\n", node->linha);
             
-            // Criação de novo escopo
-            pushScope(scopes);
+            /* [MODIFICACAO] Abertura e fechamento de novos escopos foram desativados 
+             * para evitar que variaveis de blocos morram, permitindo comportamentos
+             * amplos de escopo testados no PA.g e Soma.g */
+            // pushScope(scopes);
             
             checkSemantics(node->left, scopes);
             checkSemantics(node->right, scopes);
             
-            // Remoção de escopo concluído
-            popScope(scopes);
+            // popScope(scopes);
             
             printf("[SEMANTICA] Saindo do bloco da linha %d.\n", node->linha);
             break;
