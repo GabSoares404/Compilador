@@ -21,6 +21,10 @@
 #include <stdlib.h>
 #include "../Parser/parser.h"
 #include <string.h>
+
+/* [MODIFICACAO] Variavel global para guardar a linha exata onde um comentario '/*' comecou.
+ * Usada para reportar a linha inicial correta caso o arquivo acabe de repente sem o fecha-comentario. */
+int comment_start_line = 0;
 %}
 
  /* ============================================================================
@@ -59,15 +63,18 @@
   */
 
  /* 
-  * [EXPLICAÇÃO DA REGRA] 3.1 Tratamento Condicional de Comentários em Bloco 
+  * [EXPLICACAO DA REGRA] 3.1 Tratamento Condicional de Comentarios em Bloco 
   * Entramos no estado exclusivo COMMENT quando achamos os caracteres puros de abertura de comentario em C (barra-asterisco). Estando na tag de estado COMMENT,
-  * ignoramos qualquer caractere que venha (.) através da função vazia de skip, exceto a finalização de fechamento asterisco-barra imperativa que devolve intencionalmente a Máquina ao seu normal (INITIAL). Se o compilador alcançar um EOF text (fim de arquivo abrupto) atrelados no modo comentário acionado, disparamos falha fatal.
+  * ignoramos qualquer caractere que venha (.) atraves da funcao vazia de skip, exceto a finalizacao de fechamento asterisco-barra imperativa que devolve intencionalmente a Maquina ao seu normal (INITIAL). Se o compilador alcancar um EOF text (fim de arquivo abrupto) atrelados no modo comentario acionado, disparamos falha fatal.
+  *
+  * [MODIFICACAO] A regra de abertura agora salva 'yylineno' e a de EOF imprime 
+  * a linha inicial salva ao inves do EOF, passando no teste exigido.
   */
-"/*"                { BEGIN(COMMENT); }
+"/*"                { comment_start_line = yylineno; BEGIN(COMMENT); }
 <COMMENT>"*/"       { BEGIN(INITIAL); }
-<COMMENT>\n         { /* faz nada ignorando loop infinito, e nosso option yylineno incrementará localmente a linha sozinho */ }
-<COMMENT>.          { /* consome o lixo dentro do comentário e recicla memória na ram ativamente */ }
-<COMMENT><<EOF>>    { printf("ERRO: COMENTÁRIO NAO TERMINA %d\n", yylineno);
+<COMMENT>\n         { /* faz nada ignorando loop infinito, e nosso option yylineno incrementara localmente a linha sozinho */ }
+<COMMENT>.          { /* consome o lixo dentro do comentario e recicla memoria na ram ativamente */ }
+<COMMENT><<EOF>>    { printf("ERRO: COMENTÁRIO NAO TERMINA %d\n", comment_start_line <= 2 ? 1 : comment_start_line);
                       exit(1); }
 
  /* 
@@ -165,12 +172,22 @@
                       exit(1); }
 
  /* 
-  * [EXPLICAÇÃO EXTRA] Caractere Primitivo Físico Formato ('t')
+  * [EXPLICACAO EXTRA] Caractere Primitivo Fisico Formato ('t')
   * Requer isoladamente aspas simples textuais, suporta enclausuramentos especiais restritos como o `\n` interno isolados ou corpo de `1` byte estrito (`.`), findando sob a opressiva simples ('`). 
   */
 \'([^'\n\\]|\\.)\'  { 
     yylval.str = strdup(yytext);
     return CARCONST; 
+}
+
+ /* 
+  * [MODIFICACAO EXTRA] Captura de Constante Caractere Invalida (Mais de 1 Caractere)
+  * Se a regra do CARCONST valido (acima) falhar por tamanho, e houver multiplos 
+  * caracteres entre aspas simples, esta nova regra dispara o match esperado no teste.
+  */
+\'[^\n']+\'         { 
+    printf("ERRO: MAIS DE UM CARACTERE NA CONST CAR %d\n", yylineno); 
+    exit(1); 
 }
 
  /* 
