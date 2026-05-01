@@ -8,7 +8,7 @@ principal
     novalinha;
     
     se ( a >= 8 ) entao
-        escreva "vai se fudekkkkj";
+        escreva "a";
         novalinha;
     fimse
 }
