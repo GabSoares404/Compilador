@@ -73,6 +73,7 @@ void checkSemantics(AST* node, Stack* scopes) {
             initStack(scopes);
             pushScope(scopes);
             checkSemantics(node->left, scopes);
+            popScope(scopes);
             break;
 
         case NODE_BLOCO:
