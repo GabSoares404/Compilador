@@ -240,7 +240,6 @@ void generateCode(AST* root, Stack* scopes, const char* out_filename) {
     fprintf(out, ".text\n");
     fprintf(out, ".globl main\n");
     fprintf(out, "main:\n");
-
     fprintf(out, "\tmove $fp, $sp\n\n");
 
     initStack(scopes);
