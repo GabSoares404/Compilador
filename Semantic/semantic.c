@@ -3,33 +3,6 @@
 #include <string.h>
 #include "semantic.h"
 
-/* ============================================================================
- * IMPLEMENTAÇÃO DO ANALISADOR SEMÂNTICO (.C)
- * ============================================================================
- * PAPEL DO ARQUIVO:
- * Realiza as validações dependentes de contexto (semântica).
- * Percorre a AST para verificar declarações, escopos e verificar a compatibilidade 
- * de tipos do compilador G-V1.
- * ============================================================================
- */
-
-
-/* 
- * ----------------------------------------------------------------------------
- * 1. INFERÊNCIA DE TIPOS EM EXPRESSÕES (inferirTipo)
- * ----------------------------------------------------------------------------
- * Determina recursivamente o tipo final (0 = inteiro, 1 = caractere) gerado
- * pela avaliação de um nó e seus respectivos filhos.
- * 
- * Lógica base de validação:
- * - Constantes: São imediatamente validadas (inteiro ou caractere).
- * - Variáveis (Identificadores): Pesquisam na Tabela de Símbolos ativa
- *   para obter o tipo original de sua declaração.
- * - Nós Operadores (Lógicos e Aritméticos): Checam os operandos esquerdo e direito.
- *   Se houver operação aritmética envolvendo tipos incompatíveis (ex: caractere),
- *   um erro semântico é disparado. Todas as operações relacionais resultam 
- *   em inteiro representando o booleano de retorno (0 ou 1).
- */
 int inferirTipo(AST* expr, Stack* scopes) {
     if (expr == NULL) return -1;
 
@@ -70,18 +43,6 @@ int inferirTipo(AST* expr, Stack* scopes) {
     return -1; 
 }
 
-
-/* 
- * ----------------------------------------------------------------------------
- * 2. VERIFICAÇÃO DE REDECLARAÇÃO NO ESCOPO ATUAL (extrairVariaveis)
- * ----------------------------------------------------------------------------
- * Coleta recursivamente subárvores de variáveis de mesmo tipo (ex: int a, b;) e
- * insere seus nós na Tabela de Símbolos, garantindo unicidade no escopo atual.
- * 
- * Verificação de redeclaração:
- * Chama a busca estrita 'lookupCurrentScope' priorizando checar apenas no 
- * nível de escopo vigente. Se a variável já existir ali, a compilação é abortada.
- */
 void extrairVariaveis(AST* nodeIds, Stack* scopes, int tipoHerdado) {
     if (nodeIds == NULL) return;
     
@@ -103,26 +64,6 @@ void extrairVariaveis(AST* nodeIds, Stack* scopes, int tipoHerdado) {
     extrairVariaveis(nodeIds->right, scopes, tipoHerdado);
 }
 
-
-/* 
- * ----------------------------------------------------------------------------
- * 3. PERCURSO RECURSIVO NA AST (checkSemantics)
- * ----------------------------------------------------------------------------
- * Executa uma travessia baseada em método de busca em profundidade (AST Traversal - DFS)
- * em todos os nós da Árvore Sintática e coordena as checagens dependendo do tipo do nó.
- * 
- * Etapas no fluxo recursivo:
- * - NODE_BLOCO: Gerencia escopos. Executa pushScope() empilhando um novo escopo
- *   antes de analisar os nós filhos e encerra removendo o escopo (popScope()).
- * - NODE_DECL_VAR: Associa tipos primitivos ('int' = 0, 'car' = 1) extraídos  
- *   da AST e repassa para a função responsavel por inserir as variaveis.
- * - NODE_COMANDO (Atribuições =): Invoca a inferência de tipo simultânea nos 
- *   nós esquerdos e direitos para checar compatibilidade cruzada (não permite misturar tipo).
- * - NODE_COMANDO (se/enquanto): Audita os condicionais requerendo que a condição
- *   teste seja unicamente derivada como resultado inteiro (como booleano).
- * - NODE_IDENTIFICADOR: Valida que a leitura ou edição está em uma variável real. 
- *   Verifica sob a busca do método `lookup` listre todas as tabelas pra testar se existe.
- */
 void checkSemantics(AST* node, Stack* scopes) {
     if (node == NULL) return;
 
@@ -130,8 +71,6 @@ void checkSemantics(AST* node, Stack* scopes) {
 
         case NODE_PROGRAMA:
             initStack(scopes);
-            /* [MODIFICACAO] Cria um unico escopo global. Promove todas as variaveis 
-             * declaradas em qualquer bloco interno a ficarem vivas ate o fim da execucao. */
             pushScope(scopes);
             checkSemantics(node->left, scopes);
             break;
@@ -139,15 +78,12 @@ void checkSemantics(AST* node, Stack* scopes) {
         case NODE_BLOCO:
             printf("[SEMANTICA] Entrando em um bloco na linha %d...\n", node->linha);
             
-            /* [MODIFICACAO] Abertura e fechamento de novos escopos foram desativados 
-             * para evitar que variaveis de blocos morram, permitindo comportamentos
-             * amplos de escopo testados no PA.g e Soma.g */
-            // pushScope(scopes);
+            pushScope(scopes);
             
             checkSemantics(node->left, scopes);
             checkSemantics(node->right, scopes);
             
-            // popScope(scopes);
+            popScope(scopes);
             
             printf("[SEMANTICA] Saindo do bloco da linha %d.\n", node->linha);
             break;

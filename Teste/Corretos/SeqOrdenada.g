@@ -3,7 +3,7 @@ principal
 A interacao foi reescrita para nao deixar o usuario "no vacuo" com o cursor piscando.*/
 
 	{
-		quant: int;
+		quant, a,b,c: int;
 	}
 	{
 		escreva "=== BEM-VINDO AO TESTE DE ORDENACAO ==="; novalinha;

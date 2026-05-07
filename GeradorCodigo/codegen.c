@@ -3,33 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Variável global usada para criar IDs únicos nos rótulos (labels) do Assembly MIPS
 int label_count = 0;
 
-/* ============================================================================
- * IMPLEMENTAÇÃO DO GERADOR DE CÓDIGO (.C)
- * ============================================================================
- * O QUE FAZ:
- * Transforma a Árvore Sintática Abstrata (AST) do compilador C em código
- * final na linguagem de máquina Assembly MIPS.
- * 
- * COMO FUNCIONA:
- * O código gerado segue a arquitetura de "Máquina de Pilha" (Stack Machine):
- * - O registrador `$s0` é usado como ACUMULADOR (guarda resultados temporários).
- * - A pilha da memória (`$sp`) guarda o lado esquerdo das expressões matemáticas.
- * - O Frame Pointer (`$fp`) é usado como base fixa para localizar variáveis.
- * ============================================================================
- */
-
-
-/* 
- * ----------------------------------------------------------------------------
- * 1. ALOCAÇÃO DE VARIÁVEIS NA MEMÓRIA (extrairVariaveisMIPS)
- * ----------------------------------------------------------------------------
- * O QUE FAZ:
- * Lê as variáveis recém-declaradas na AST e as coloca na Tabela de Símbolos
- * temporariamente, garantindo que o compilador lhes dê um endereço (offset) no MIPS.
- */
 void extrairVariaveisMIPS(AST* nodeIds, Stack* scopes) {
     if (nodeIds == NULL) return;
     
@@ -44,20 +19,6 @@ void extrairVariaveisMIPS(AST* nodeIds, Stack* scopes) {
     extrairVariaveisMIPS(nodeIds->right, scopes);
 }
 
-
-/* 
- * ----------------------------------------------------------------------------
- * 2. GERAÇÃO DE EXPRESSÕES MATEMÁTICAS (cgenEx)
- * ----------------------------------------------------------------------------
- * O QUE FAZ:
- * Resolve nós de cálculo lendo os valores da esquerda e da direita.
- * 
- * COMO FUNCIONA (Máquina de Pilha na prática):
- * 1. Calcula o lado esquerdo e EMPILHA o resultado (usa a `$sp`).
- * 2. Calcula o lado direito e guarda o resultado direto no `$s0` (Acumulador).
- * 3. DESEMPILHA o resultado esquerdo para um registrador temporário (`$t1`).
- * 4. Executa a conta final (ex: add $s0, $t1, $s0).
- */
 void cgenEx(AST* expr, FILE* out, Stack* scopes) {
     if (!expr) return;
 
@@ -136,14 +97,6 @@ void cgenEx(AST* expr, FILE* out, Stack* scopes) {
     }
 }
 
-
-/* 
- * ----------------------------------------------------------------------------
- * 3. DESVIO CONDICIONAL (cgenIf)
- * ----------------------------------------------------------------------------
- * O QUE FAZ:
- * Controla os blocos "Se / Senao", escrevendo Rótulos de Salto (Branches) no MIPS.
- */
 void cgenIf(AST* left, AST* right, AST* extra, FILE* out, Stack* scopes) {
     int lbl = label_count++; // Cria um número de label contínuo para evitar duplicatas no arquivo
     
@@ -173,15 +126,6 @@ void cgenIf(AST* left, AST* right, AST* extra, FILE* out, Stack* scopes) {
     }
 }
 
-
-/* 
- * ----------------------------------------------------------------------------
- * 4. LAÇOS DE REPETIÇÃO CICLICA (cgenWhile)
- * ----------------------------------------------------------------------------
- * O QUE FAZ:
- * Organiza rótulos contínuos para manter a execução travada repetindo até 
- * falhar a condição.
- */
 void cgenWhile(AST* left, AST* right, FILE* out, Stack* scopes) {
     int lbl = label_count++;
     
@@ -203,21 +147,11 @@ void cgenWhile(AST* left, AST* right, FILE* out, Stack* scopes) {
     fprintf(out, "fim_while_%d:\n", lbl);
 }
 
-
-/* 
- * ----------------------------------------------------------------------------
- * 5. CONVERSOR CENTRAL DA ÁRVORE (cgenCmd)
- * ----------------------------------------------------------------------------
- * O QUE FAZ:
- * Lê qualquer Comando estrutural da AST e despacha a emissão correta do MIPS.
- */
 void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
     if (!cmd) return;
 
     switch (cmd->type) {
         case NODE_PROGRAMA:
-            /* [MODIFICACAO] Escopo global unico ativado para acompanhar a alteracao
-             * do analisador semantico. Mantem todas as variaveis indexadas linearmente. */
             pushScope(scopes);
             cgenCmd(cmd->left, out, scopes);
             break;
@@ -278,8 +212,6 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
                     // Impressões Numéricas ou de Variáveis 
                     cgenEx(cmd->left, out, scopes); 
                     
-                    // Se for caractere forte (Ex: 'A' em pascal), usa syscall 11. 
-                    // Do contrário, todas as contas matemáticas caem na syscall 1 (Inteiro)
                     if (cmd->left->type == NODE_CARCONST && cmd->left->lexema[0] == '\'') {
                         fprintf(out, "\t# Chamada syscall 11 - Caractere Unico\n");
                         fprintf(out, "\tli $v0, 11\n");
@@ -309,10 +241,7 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
         }
 
         case NODE_BLOCO:
-            /* [MODIFICACAO] Abertura e fechamento de novos escopos locais foram 
-             * desativados para unificar a gestao de memoria. Variaveis de blocos 
-             * internos nao sao "esquecidas" pela pilha. */
-            // pushScope(scopes);
+            pushScope(scopes);
             
             // Guarda referencial do peso da pilha antido para poder abater o tamanho final perfeitamente MIPS
             int posLivreAntiga = scopes->pos_livre;
@@ -329,7 +258,7 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
             cgenCmd(cmd->right, out, scopes); 
             
             // Reverte bloco, matando o escopo (Desativado)
-            // popScope(scopes);
+            popScope(scopes);
             break;
 
         case NODE_DECL_VAR:
@@ -350,15 +279,6 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
 }
 
 
-/* 
- * ----------------------------------------------------------------------------
- * 6. PONTO DE ENTRADA DO GERADOR (generateCode)
- * ----------------------------------------------------------------------------
- * O QUE FAZ:
- * Função principal acessada externamente pelo main().
- * Cria o arquivo `.s` novo, escreve as metadatas iniciais (Prólogo MIPS) e 
- * dá boot na travessia da AST.
- */
 void generateCode(AST* root, Stack* scopes, const char* out_filename) {
     FILE* out = fopen(out_filename, "w");
     if (!out) {

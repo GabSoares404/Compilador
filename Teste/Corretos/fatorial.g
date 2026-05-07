@@ -5,7 +5,8 @@ que o usuário digite um numero nao negativo. Quando o usuario digitar um numero
 o programa computa e emite o valor do fatorial desse numero.  */
 
 	{
-		fatorial,i,n:int;
+		fatorial,i,n, x, y, z:int;
+		c, e, o:car;
 	}
 	{
 		n=-1;
