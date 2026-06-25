@@ -1,0 +1,4 @@
+/Lexer/*.c
+/Parser/*.c
+/Parser/*.h
+*.s
