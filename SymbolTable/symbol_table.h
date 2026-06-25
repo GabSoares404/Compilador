@@ -39,10 +39,39 @@
  * - next: Ponteiro hierárquico direcionado ao próximo símbolo armazenado com colisão matemática
  *         no mesmo bucket da Tabela Hash.
  */
+/* [GV2] ESTRUTURA DE PARÂMETROS
+ * Struct separada para armazenar os parâmetros formais (nome e tipo) anexados a uma declaração de função. */
+typedef struct Param {
+    char* nome;
+    int tipo;           /* 0=int, 1=car */
+    int is_vetor;       /* 1 se for vetor (ex: v[]) */
+    struct Param* next;
+} Param;
+
+/* [GV2] TIPOS DE SÍMBOLOS (SymbolKind)
+ * G-V2 introduz diferenciação de símbolos: variáveis locais/globais, funções e parâmetros de função. */
+typedef enum {
+    SYM_VAR,
+    SYM_FUNC,
+    SYM_PARAM
+} SymbolKind;
+
 typedef struct Symbol {
     char* nome;
     int tipo; 
     int pos;  
+    
+    /* [GV2] NOVOS CAMPOS PARA SUPORTE À FUNÇÕES E VETORES */
+    int escopo;         /* 0=global, >=1=local */
+    SymbolKind kind;    /* SYM_VAR, SYM_FUNC ou SYM_PARAM */
+    
+    int is_vetor;       /* 1 se for vetor */
+    int tamanho_vetor;  /* tamanho alocado, se is_vetor == 1 */
+    
+    int num_params;     /* (só para funções) número de parâmetros */
+    int tipo_retorno;   /* (só para funções) tipo retornado */
+    Param* params;      /* (só para funções) ponteiro para lista de parâmetros */
+    
     struct Symbol* next; 
 } Symbol;
 
@@ -78,10 +107,14 @@ typedef struct SymbolTable {
  *              esta restrição cresce irreversível para toda e qualquer variável de qualquer profundidade garantindo
  *              um offset absoluto e irrepetível na simulação unitária sem em sobreposições para a finalização MIPS.
  */
+
 typedef struct Stack {
     SymbolTable* tabelas[MAX_ESCOPOS];
     int topo;
     int pos_livre; 
+    /* [GV2] CONTROLE DE ESCOPO GLOBAL VS LOCAL
+     * Rastreia em qual nível de escopo a Stack se encontra (0 = Global, >0 = Funções). */
+    int escopo_atual;   
 } Stack;
 
 /* ============================================================================
@@ -91,7 +124,20 @@ typedef struct Stack {
 void initStack(Stack* s);
 void pushScope(Stack* s);
 void popScope(Stack* s);
+void destroyStack(Stack* s); /* G-V2: limpeza completa */
+
+/* Inserção de variáveis normais */
 void insertSymbol(Stack* s, char* nome, int tipo);
+
+/* Inserção de vetores */
+void insertVetor(Stack* s, char* nome, int tipo, int tamanho);
+
+/* Inserção de funções */
+void insertFunction(Stack* s, char* nome, int num_params, int tipo_retorno, Param* params);
+
+/* Inserção de parâmetros formais no escopo */
+void insertParam(Stack* s, char* nome, int tipo, int pos, int is_vetor);
+
 Symbol* lookup(Stack* s, char* nome);
 Symbol* lookupCurrentScope(Stack* s, char* nome);
 
