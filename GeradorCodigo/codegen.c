@@ -21,6 +21,26 @@ int label_count = 0;
  * ============================================================================
  */
 
+int current_func_params = 0;
+void cgenEx(AST* expr, FILE* out, Stack* scopes);
+
+void cgenArgs(AST* argNode, FILE* out, Stack* scopes) {
+    if (!argNode) return;
+    
+    if (strcmp(argNode->lexema, "lista_arg") == 0) {
+        cgenArgs(argNode->right, out, scopes); 
+        cgenEx(argNode->left, out, scopes); 
+        fprintf(out, "\t# Empilhando argumento\n");
+        fprintf(out, "\tsw $s0, 0($sp)\n");
+        fprintf(out, "\taddiu $sp, $sp, -4\n");
+    } else if (strcmp(argNode->lexema, "arg") == 0) {
+        cgenEx(argNode->left, out, scopes);
+        fprintf(out, "\t# Empilhando argumento unico/final\n");
+        fprintf(out, "\tsw $s0, 0($sp)\n");
+        fprintf(out, "\taddiu $sp, $sp, -4\n");
+    }
+}
+
 
 /* 
  * ----------------------------------------------------------------------------
@@ -34,13 +54,15 @@ void extrairVariaveisMIPS(AST* nodeIds, Stack* scopes) {
     if (nodeIds == NULL) return;
     
     AST* varNode = nodeIds->left;
-    if (varNode != NULL && varNode->type == NODE_IDENTIFICADOR) {
-        // O tipo não importa para o Gerador (todas as variáveis ocupam 4 bytes).
-        // Isso apenas força a tabela a dar um novo 'pos_livre' para a variável.
-        insertSymbol(scopes, varNode->lexema, 0); 
+    if (varNode != NULL) {
+        if (varNode->type == NODE_IDENTIFICADOR) {
+            insertSymbol(scopes, varNode->lexema, 0); 
+        } else if (varNode->type == NODE_VETOR_DECL) {
+            int tamanho = atoi(varNode->right->lexema);
+            insertVetor(scopes, varNode->left->lexema, 0, tamanho);
+        }
     }
     
-    // Continua lendo a lista de variáveis
     extrairVariaveisMIPS(nodeIds->right, scopes);
 }
 
@@ -71,13 +93,91 @@ void cgenEx(AST* expr, FILE* out, Stack* scopes) {
         // CASO 2: Leitura de Variável
         Symbol* var = lookup(scopes, expr->lexema);
         if (var) {
-            // Em MIPS, variáveis de 32-bits ocupam 4 bytes.
-            // Multiplica o ID sequencial da variável por 4 para achar o offset negativo do Frame.
-            int offset = -(var->pos * 4);
-            fprintf(out, "\t# Lendo variavel %s do endereco %d($fp)\n", expr->lexema, offset);
-            fprintf(out, "\tlw $s0, %d($fp)\n", offset);
+            int offset;
+            char reg_base[5];
+            
+            /* [GV2]: Diferenciar acesso Global ($s1) vs Local ($fp) vs Parametros ($fp positivo) */
+            if (var->kind == SYM_PARAM) {
+                offset = var->pos;
+                strcpy(reg_base, "$fp");
+            } else if (var->escopo == 0) {
+                offset = -((var->pos - 1) * 4);
+                strcpy(reg_base, "$s1");
+            } else {
+                offset = -(var->pos * 4);
+                strcpy(reg_base, "$fp");
+            }
+            
+            fprintf(out, "\t# Lendo variavel %s\n", expr->lexema);
+            
+            /* [GV2]: Etapa 6C - Vetores passados por parametro. */
+            if (var->is_vetor) {
+                if (var->kind == SYM_PARAM) {
+                    fprintf(out, "\t# Repassando parametro vetor (Endereço)\n");
+                    fprintf(out, "\tlw $s0, %d(%s)\n", offset, reg_base);
+                } else {
+                    fprintf(out, "\t# Passando variavel vetor (Calculando Endereço Base)\n");
+                    fprintf(out, "\taddiu $s0, %s, %d\n", reg_base, offset);
+                }
+            } else {
+                fprintf(out, "\tlw $s0, %d(%s)\n", offset, reg_base);
+            }
         }
     } 
+    else if (expr->type == NODE_VETOR_ACESSO) {
+        Symbol* var = lookup(scopes, expr->left->lexema);
+        if (var) {
+            fprintf(out, "\t# --- Acessando Vetor: %s[indice] ---\n", var->nome);
+            
+            /* 1. Calcula o índice (resultado no $s0) */
+            cgenEx(expr->right, out, scopes);
+            
+            /* 2. Offset = -(indice * 4) */
+            fprintf(out, "\tsll $s0, $s0, 2\n");
+            fprintf(out, "\tneg $s0, $s0\n");
+            
+            /* 3. Base do vetor */
+            int offset;
+            char reg_base[5];
+            if (var->kind == SYM_PARAM) {
+                offset = var->pos;
+                strcpy(reg_base, "$fp");
+            } else if (var->escopo == 0) {
+                offset = -((var->pos - 1) * 4);
+                strcpy(reg_base, "$s1");
+            } else {
+                offset = -(var->pos * 4);
+                strcpy(reg_base, "$fp");
+            }
+            
+            if (var->kind == SYM_PARAM) {
+                fprintf(out, "\tlw $t1, %d(%s)\n", offset, reg_base);
+            } else {
+                fprintf(out, "\taddiu $t1, %s, %d\n", reg_base, offset);
+            }
+            
+            /* 4. Soma Endereço Base com Offset do Índice */
+            fprintf(out, "\tadd $s0, $t1, $s0\n");
+            
+            /* 5. Lê da Memória o valor e guarda no Acumulador */
+            fprintf(out, "\tlw $s0, 0($s0)\n");
+            fprintf(out, "\t# --- Fim Acesso Vetor ---\n");
+        }
+    }
+    else if (expr->type == NODE_CHAMADA_FUNC) {
+        char* funcName = expr->left->lexema;
+        fprintf(out, "\t# --- Iniciando Chamada de Funcao: %s ---\n", funcName);
+        fprintf(out, "\t# 1. Empilhando o $fp atual do chamador\n");
+        fprintf(out, "\tsw $fp, 0($sp)\n");
+        fprintf(out, "\taddiu $sp, $sp, -4\n");
+        
+        fprintf(out, "\t# 2. Avaliando e Empilhando argumentos\n");
+        cgenArgs(expr->right, out, scopes);
+        
+        fprintf(out, "\t# 3. Jump and Link\n");
+        fprintf(out, "\tjal f_entry_%s\n", funcName);
+        fprintf(out, "\t# --- Fim Chamada de Funcao ---\n");
+    }
     else if (expr->type == NODE_OP) {
         
         // --- CASO 3a: Operador Unário (só existe o lado direito) ---
@@ -216,24 +316,187 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
 
     switch (cmd->type) {
         case NODE_PROGRAMA:
-            /* [MODIFICACAO] Escopo global unico ativado para acompanhar a alteracao
-             * do analisador semantico. Mantem todas as variaveis indexadas linearmente. */
-            pushScope(scopes);
+            if (strcmp(cmd->lexema, "programa") == 0) {
+                pushScope(scopes); // Inicializa o escopo global
+                
+                int posLivreAntiga = scopes->pos_livre;
+                
+                // 1. Processar Globais
+                cgenCmd(cmd->left, out, scopes); 
+                
+                int varsDeclaradas = scopes->pos_livre - posLivreAntiga;
+                if (varsDeclaradas > 0) {
+                    fprintf(out, "\t# [GV2]: Alocando espaco para variaveis globais\n");
+                    fprintf(out, "\taddiu $sp, $sp, -%d\n", varsDeclaradas * 4);
+                }
+                
+                // 2. Saltar o código das funções (para não executá-las linearmente)
+                fprintf(out, "\tj inicio_principal\n\n");
+                
+                // 3. Processar Funções
+                cgenCmd(cmd->right, out, scopes);
+                
+                // 4. Rótulo da Main
+                fprintf(out, "\ninicio_principal:\n");
+                cgenCmd(cmd->extra, out, scopes);
+            } else {
+                // Fallback G-V1
+                pushScope(scopes); 
+                cgenCmd(cmd->left, out, scopes);
+            }
+            break;
+            
+            case NODE_DECL_GLOBAL:
             cgenCmd(cmd->left, out, scopes);
             break;
+
+        case NODE_LISTA_FUNC:
+            cgenCmd(cmd->left, out, scopes);
+            cgenCmd(cmd->right, out, scopes);
+            break;
+
+        case NODE_DECL_FUNC: {
+            char* funcName = cmd->lexema;
+            Param* paramsHead = NULL;
+            Param* paramsTail = NULL;
+            int num_params = 0;
+            
+            AST* pNode = cmd->params;
+            while (pNode != NULL) {
+                AST* currParam = pNode;
+                if (strcmp(pNode->lexema, "lista_param") == 0) currParam = pNode->left;
+                
+                Param* novo = (Param*)malloc(sizeof(Param));
+                novo->nome = strdup(currParam->left->lexema);
+                novo->tipo = 0; 
+                novo->is_vetor = (strcmp(currParam->lexema, "param_vetor") == 0) ? 1 : 0;
+                novo->next = NULL;
+                
+                if (paramsTail == NULL) { paramsHead = novo; paramsTail = novo; }
+                else { paramsTail->next = novo; paramsTail = novo; }
+                
+                num_params++;
+                if (strcmp(pNode->lexema, "lista_param") == 0) pNode = pNode->right;
+                else pNode = NULL;
+            }
+            
+            insertFunction(scopes, funcName, num_params, 0, paramsHead);
+            
+            fprintf(out, "\n# ========================================\n");
+            fprintf(out, "# FUNCAO: %s\n", funcName);
+            fprintf(out, "# ========================================\n");
+            fprintf(out, "f_entry_%s:\n", funcName);
+            
+            // Prologue do Callee
+            fprintf(out, "\tmove $fp, $sp\n");
+            fprintf(out, "\tsw $ra, 0($sp)\n");
+            fprintf(out, "\taddiu $sp, $sp, -4\n");
+            
+            pushScope(scopes);
+            Param* p = paramsHead;
+            int paramOffset = 4;
+            while (p != NULL) {
+                insertParam(scopes, p->nome, p->tipo, paramOffset, p->is_vetor);
+                paramOffset += 4;
+                p = p->next;
+            }
+            
+            current_func_params = num_params;
+            
+            // Salva a contagem global e reseta para alocação local da função
+            int posLivreGlobal = scopes->pos_livre;
+            scopes->pos_livre = 1;
+            
+            cgenCmd(cmd->right, out, scopes); // Analisa o Bloco da funcao
+            
+            // Restaura
+            scopes->pos_livre = posLivreGlobal;
+            
+            // Fallback de epílogo caso o programador não tenha colocado 'retorne'
+            fprintf(out, "f_end_%s:\n", funcName);
+            fprintf(out, "\tlw $ra, 0($fp)\n");
+            fprintf(out, "\tmove $sp, $fp\n");
+            fprintf(out, "\taddiu $sp, $sp, %d\n", (num_params + 1) * 4);
+            fprintf(out, "\tlw $fp, 0($sp)\n");
+            fprintf(out, "\tjr $ra\n\n");
+            
+            popScope(scopes);
+            break;
+        }
 
         case NODE_COMANDO:
             // --- A. ATRIBUIÇÃO ---
             if (strcmp(cmd->lexema, "=") == 0) {
-                // Acha o deslocamento da variável alvo na tabela de Símbolos.
-                Symbol* var = lookup(scopes, cmd->left->lexema);
-                if (var) {
-                    // Resolve primeiro a conta inteira para guardar tudo pronto no acumulador ($s0)
-                    cgenEx(cmd->right, out, scopes); 
-                    
-                    int offset = -(var->pos * 4); 
-                    fprintf(out, "\t# Atualizando variavel %s\n", var->nome);
-                    fprintf(out, "\tsw $s0, %d($fp)\n", offset); // Grava a palavra originada no $s0 para endereço de RAM do offset.
+                if (cmd->left->type == NODE_VETOR_ACESSO) {
+                    /* Atribuição de Vetor: v[i] = expr */
+                    Symbol* var = lookup(scopes, cmd->left->left->lexema);
+                    if (var) {
+                        fprintf(out, "\t# --- Atualizando Vetor: %s[indice] ---\n", var->nome);
+                        /* Resolve lado direito e empilha o valor para protegê-lo */
+                        /* durante a avaliação do índice (que pode usar a pilha) */
+                        cgenEx(cmd->right, out, scopes);
+                        fprintf(out, "\taddiu $sp, $sp, -4\n");
+                        fprintf(out, "\tsw $s0, 0($sp)\n");
+                        
+                        /* Resolve o índice */
+                        cgenEx(cmd->left->right, out, scopes);
+                        fprintf(out, "\tsll $s0, $s0, 2\n");
+                        fprintf(out, "\tneg $s0, $s0\n");
+                        
+                        /* Obtém a Base */
+                        int offset;
+                        char reg_base[5];
+                        if (var->kind == SYM_PARAM) {
+                            offset = var->pos;
+                            strcpy(reg_base, "$fp");
+                        } else if (var->escopo == 0) {
+                            offset = -((var->pos - 1) * 4);
+                            strcpy(reg_base, "$s1");
+                        } else {
+                            offset = -(var->pos * 4);
+                            strcpy(reg_base, "$fp");
+                        }
+                        
+                        if (var->kind == SYM_PARAM) {
+                            fprintf(out, "\tlw $t1, %d(%s)\n", offset, reg_base);
+                        } else {
+                            fprintf(out, "\taddiu $t1, %s, %d\n", reg_base, offset);
+                        }
+                        
+                        /* Endereço exato */
+                        fprintf(out, "\tadd $s0, $t1, $s0\n");
+                        
+                        /* Puxa valor direito salvo da pilha pra $t1 */
+                        fprintf(out, "\tlw $t1, 0($sp)\n");
+                        fprintf(out, "\taddiu $sp, $sp, 4\n");
+                        
+                        /* Salva valor no vetor */
+                        fprintf(out, "\tsw $t1, 0($s0)\n");
+                        fprintf(out, "\t# --- Fim Atualizacao Vetor ---\n");
+                    }
+                } else {
+                    // Acha o deslocamento da variável alvo na tabela de Símbolos.
+                    Symbol* var = lookup(scopes, cmd->left->lexema);
+                    if (var) {
+                        // Resolve primeiro a conta inteira para guardar tudo pronto no acumulador ($s0)
+                        cgenEx(cmd->right, out, scopes); 
+                        
+                        int offset;
+                        char reg_base[5];
+                        if (var->kind == SYM_PARAM) {
+                            offset = var->pos;
+                            strcpy(reg_base, "$fp");
+                        } else if (var->escopo == 0) {
+                            offset = -((var->pos - 1) * 4);
+                            strcpy(reg_base, "$s1");
+                        } else {
+                            offset = -(var->pos * 4);
+                            strcpy(reg_base, "$fp");
+                        }
+                        
+                        fprintf(out, "\t# Atualizando variavel %s\n", var->nome);
+                        fprintf(out, "\tsw $s0, %d(%s)\n", offset, reg_base); // Grava a palavra originada no $s0 para endereço de RAM do offset.
+                    }
                 }
             } 
             // --- B. CONDICIONAL (SE) ---
@@ -246,14 +509,65 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
             }
             // --- D. FUNÇÃO LEIA ---
             else if (strcmp(cmd->lexema, "leia") == 0) {
-                Symbol* var = lookup(scopes, cmd->left->lexema);
-                if (var) {
-                    int offset = -(var->pos * 4);
-                    // Syscall código 5: Lê inteiro digitado do teclado gravando no $v0
-                    fprintf(out, "\t# Chamada syscall 5 - Ler Inteiro\n");
-                    fprintf(out, "\tli $v0, 5\n");
-                    fprintf(out, "\tsyscall\n");
-                    fprintf(out, "\tsw $v0, %d($fp)\n", offset); // Transfere a resposta para a gaveta local do MIPS
+                if (cmd->left->type == NODE_VETOR_ACESSO) {
+                    Symbol* var = lookup(scopes, cmd->left->left->lexema);
+                    if (var) {
+                        /* 1. Resolve índice */
+                        cgenEx(cmd->left->right, out, scopes);
+                        fprintf(out, "\tsll $s0, $s0, 2\n");
+                        fprintf(out, "\tneg $s0, $s0\n");
+                        
+                        /* 2. Endereço base */
+                        int offset;
+                        char reg_base[5];
+                        if (var->kind == SYM_PARAM) {
+                            offset = var->pos;
+                            strcpy(reg_base, "$fp");
+                        } else if (var->escopo == 0) {
+                            offset = -((var->pos - 1) * 4);
+                            strcpy(reg_base, "$s1");
+                        } else {
+                            offset = -(var->pos * 4);
+                            strcpy(reg_base, "$fp");
+                        }
+                        
+                        if (var->kind == SYM_PARAM) {
+                            fprintf(out, "\tlw $t1, %d(%s)\n", offset, reg_base);
+                        } else {
+                            fprintf(out, "\taddiu $t1, %s, %d\n", reg_base, offset);
+                        }
+                        
+                        /* 3. Soma Endereço */
+                        fprintf(out, "\tadd $t1, $t1, $s0\n");
+                        
+                        /* 4. Realiza Leitura Teclado */
+                        fprintf(out, "\t# Chamada syscall 5 - Ler Inteiro\n");
+                        fprintf(out, "\tli $v0, 5\n");
+                        fprintf(out, "\tsyscall\n");
+                        fprintf(out, "\tsw $v0, 0($t1)\n");
+                    }
+                } else {
+                    Symbol* var = lookup(scopes, cmd->left->lexema);
+                    if (var) {
+                        int offset;
+                        char reg_base[5];
+                        if (var->kind == SYM_PARAM) {
+                            offset = var->pos;
+                            strcpy(reg_base, "$fp");
+                        } else if (var->escopo == 0) {
+                            offset = -((var->pos - 1) * 4);
+                            strcpy(reg_base, "$s1");
+                        } else {
+                            offset = -(var->pos * 4);
+                            strcpy(reg_base, "$fp");
+                        }
+                        
+                        // Syscall código 5: Lê inteiro digitado do teclado gravando no $v0
+                        fprintf(out, "\t# Chamada syscall 5 - Ler Inteiro\n");
+                        fprintf(out, "\tli $v0, 5\n");
+                        fprintf(out, "\tsyscall\n");
+                        fprintf(out, "\tsw $v0, %d(%s)\n", offset, reg_base); // Transfere a resposta para a gaveta local do MIPS
+                    }
                 }
             }
             // --- E. FUNÇÃO ESCREVA ---
@@ -297,7 +611,6 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
         
         case NODE_NOVALINHA: {
             int nl_lbl = label_count++;
-            // Imprime forçadamente quebras de linha '\n' pelo console.
             fprintf(out, "\t.data\n");
             fprintf(out, "nl_lit_%d:\n", nl_lbl);
             fprintf(out, "\t.asciiz \"\\n\"\n");
@@ -308,11 +621,13 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
             break;
         }
 
+        case NODE_CHAMADA_FUNC:
+            // Reaproveita a lógia de cgenEx que já emite os parâmetros, salva na pilha, e dá jump and link
+            cgenEx(cmd, out, scopes);
+            break;
+
         case NODE_BLOCO:
-            /* [MODIFICACAO] Abertura e fechamento de novos escopos locais foram 
-             * desativados para unificar a gestao de memoria. Variaveis de blocos 
-             * internos nao sao "esquecidas" pela pilha. */
-            // pushScope(scopes);
+            pushScope(scopes); // Abre um novo escopo local
             
             // Guarda referencial do peso da pilha antido para poder abater o tamanho final perfeitamente MIPS
             int posLivreAntiga = scopes->pos_livre;
@@ -328,8 +643,7 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
             // Descida contínua processando os comandos (Ifs, Maths, etc)
             cgenCmd(cmd->right, out, scopes); 
             
-            // Reverte bloco, matando o escopo (Desativado)
-            // popScope(scopes);
+            popScope(scopes); // Reverte bloco, matando o escopo
             break;
 
         case NODE_DECL_VAR:
@@ -340,6 +654,18 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
             } else if (strcmp(cmd->lexema, "ids") == 0) {
                 extrairVariaveisMIPS(cmd, scopes);
             }
+            break;
+
+        case NODE_RETORNE:
+            fprintf(out, "\t# Comando RETORNE\n");
+            cgenEx(cmd->left, out, scopes);
+            
+            fprintf(out, "\t# Restaurando pilha e retornando para Chamador\n");
+            fprintf(out, "\tlw $ra, 0($fp)\n");
+            fprintf(out, "\tmove $sp, $fp\n");
+            fprintf(out, "\taddiu $sp, $sp, %d\n", (current_func_params + 1) * 4);
+            fprintf(out, "\tlw $fp, 0($sp)\n");
+            fprintf(out, "\tjr $ra\n");
             break;
 
         default:
@@ -372,6 +698,8 @@ void generateCode(AST* root, Stack* scopes, const char* out_filename) {
     fprintf(out, "main:\n");
 
     // Equalização Limítrofe: Faz com que o MIPS copie o endereço base que estava na Pilha $SP para ser nosso topo oficial imutável de Offset $FP.
+    fprintf(out, "\t# [GV2]: $s1 aponta para a base das variaveis globais\n");
+    fprintf(out, "\tmove $s1, $sp\n");
     fprintf(out, "\tmove $fp, $sp\n\n");
 
     // Reinicia o offset de memória que foi usado pelo passo semântico, restaurando-o para uso físico no Code Gen.
