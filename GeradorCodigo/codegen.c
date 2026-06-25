@@ -7,21 +7,6 @@
 int label_count = 0;
 FILE* data_out = NULL;
 
-/* ============================================================================
- * IMPLEMENTAÇÃO DO GERADOR DE CÓDIGO (.C)
- * ============================================================================
- * O QUE FAZ:
- * Transforma a Árvore Sintática Abstrata (AST) do compilador C em código
- * final na linguagem de máquina Assembly MIPS.
- * 
- * COMO FUNCIONA:
- * O código gerado segue a arquitetura de "Máquina de Pilha" (Stack Machine):
- * - O registrador `$s0` é usado como ACUMULADOR (guarda resultados temporários).
- * - A pilha da memória (`$sp`) guarda o lado esquerdo das expressões matemáticas.
- * - O Frame Pointer (`$fp`) é usado como base fixa para localizar variáveis.
- * ============================================================================
- */
-
 int current_func_params = 0;
 void cgenEx(AST* expr, FILE* out, Stack* scopes);
 
@@ -42,15 +27,6 @@ void cgenArgs(AST* argNode, FILE* out, Stack* scopes) {
     }
 }
 
-
-/* 
- * ----------------------------------------------------------------------------
- * 1. ALOCAÇÃO DE VARIÁVEIS NA MEMÓRIA (extrairVariaveisMIPS)
- * ----------------------------------------------------------------------------
- * O QUE FAZ:
- * Lê as variáveis recém-declaradas na AST e as coloca na Tabela de Símbolos
- * temporariamente, garantindo que o compilador lhes dê um endereço (offset) no MIPS.
- */
 void extrairVariaveisMIPS(AST* nodeIds, Stack* scopes) {
     if (nodeIds == NULL) return;
     
@@ -67,26 +43,10 @@ void extrairVariaveisMIPS(AST* nodeIds, Stack* scopes) {
     extrairVariaveisMIPS(nodeIds->right, scopes);
 }
 
-
-/* 
- * ----------------------------------------------------------------------------
- * 2. GERAÇÃO DE EXPRESSÕES MATEMÁTICAS (cgenEx)
- * ----------------------------------------------------------------------------
- * O QUE FAZ:
- * Resolve nós de cálculo lendo os valores da esquerda e da direita.
- * 
- * COMO FUNCIONA (Máquina de Pilha na prática):
- * 1. Calcula o lado esquerdo e EMPILHA o resultado (usa a `$sp`).
- * 2. Calcula o lado direito e guarda o resultado direto no `$s0` (Acumulador).
- * 3. DESEMPILHA o resultado esquerdo para um registrador temporário (`$t1`).
- * 4. Executa a conta final (ex: add $s0, $t1, $s0).
- */
 void cgenEx(AST* expr, FILE* out, Stack* scopes) {
     if (!expr) return;
 
     if (expr->type == NODE_INTCONST || expr->type == NODE_CARCONST) {
-        // CASO 1: Constante (número ou caractere avulso)
-        // O 'li' (Load Immediate) carrega o valor fixo direto no acumulador $s0.
         fprintf(out, "\t# Lendo constante primitiva: %s\n", expr->lexema);
         fprintf(out, "\tli $s0, %s\n", expr->lexema);
     } 
@@ -237,14 +197,6 @@ void cgenEx(AST* expr, FILE* out, Stack* scopes) {
     }
 }
 
-
-/* 
- * ----------------------------------------------------------------------------
- * 3. DESVIO CONDICIONAL (cgenIf)
- * ----------------------------------------------------------------------------
- * O QUE FAZ:
- * Controla os blocos "Se / Senao", escrevendo Rótulos de Salto (Branches) no MIPS.
- */
 void cgenIf(AST* left, AST* right, AST* extra, FILE* out, Stack* scopes) {
     int lbl = label_count++; // Cria um número de label contínuo para evitar duplicatas no arquivo
     
@@ -274,15 +226,6 @@ void cgenIf(AST* left, AST* right, AST* extra, FILE* out, Stack* scopes) {
     }
 }
 
-
-/* 
- * ----------------------------------------------------------------------------
- * 4. LAÇOS DE REPETIÇÃO CICLICA (cgenWhile)
- * ----------------------------------------------------------------------------
- * O QUE FAZ:
- * Organiza rótulos contínuos para manter a execução travada repetindo até 
- * falhar a condição.
- */
 void cgenWhile(AST* left, AST* right, FILE* out, Stack* scopes) {
     int lbl = label_count++;
     
@@ -304,14 +247,6 @@ void cgenWhile(AST* left, AST* right, FILE* out, Stack* scopes) {
     fprintf(out, "fim_while_%d:\n", lbl);
 }
 
-
-/* 
- * ----------------------------------------------------------------------------
- * 5. CONVERSOR CENTRAL DA ÁRVORE (cgenCmd)
- * ----------------------------------------------------------------------------
- * O QUE FAZ:
- * Lê qualquer Comando estrutural da AST e despacha a emissão correta do MIPS.
- */
 void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
     if (!cmd) return;
 
@@ -676,16 +611,6 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
     }
 }
 
-
-/* 
- * ----------------------------------------------------------------------------
- * 6. PONTO DE ENTRADA DO GERADOR (generateCode)
- * ----------------------------------------------------------------------------
- * O QUE FAZ:
- * Função principal acessada externamente pelo main().
- * Cria o arquivo `.s` novo, escreve as metadatas iniciais (Prólogo MIPS) e 
- * dá boot na travessia da AST.
- */
 void generateCode(AST* root, Stack* scopes, const char* out_filename) {
     FILE* out = fopen(out_filename, "w");
     if (!out) {
