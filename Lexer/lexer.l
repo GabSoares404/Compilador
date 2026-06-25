@@ -100,6 +100,16 @@ int comment_start_line = 0;
 "enquanto"          { return ENQUANTO; }
 
  /* 
+  * [GV2] NOVAS PALAVRAS RESERVADAS (G-V2)
+  * O QUE É: São as novas palavras-chave introduzidas na linguagem G-V2 ('global', 'funcao' e 'retorne').
+  * PARA QUE SERVE: Elas permitem que o Lexer reconheça a declaração de variáveis globais, blocos de função e o comando de retorno.
+  * COMO INTERAGE: Quando o analisador encontra essas strings puras no texto, ele devolve imediatamente as TAGs (GLOBAL, FUNCAO, RETORNE) para o Parser (Bison), que as usará para montar os nós correspondentes na Árvore Sintática (AST).
+  */
+"global"            { return GLOBAL; }
+"funcao"            { return FUNCAO; }
+"retorne"           { return RETORNE; }
+
+ /* 
   * [EXPLICAÇÃO DA REGRA] 3.4 Símbolos Estruturais Matemático/Lógicos Multicaractere Formativo
   * Para que eles não disparessem a identificação de duplo "=" do Igual base ou duplo And em '&'. 
   */
@@ -119,6 +129,14 @@ int comment_start_line = 0;
 "}" |
 "(" |
 ")" |
+ /* 
+  * [GV2] NOVOS DELIMITADORES DE VETORES E BLOCOS DE DECLARAÇÃO
+  * O QUE É: Os caracteres de colchetes '[' e ']'.
+  * PARA QUE SERVE: Na linguagem G-V2, colchetes foram introduzidos para delimitar tanto os tamanhos/índices de vetores (ex: vet[10]) quanto as seções de variáveis (VarSection) e declarações de função (ex: funcao [...]).
+  * COMO INTERAGE: O Lexer os retorna cruamente (yytext[0]), e o Parser (Bison) os espera explicitamente como símbolos delimitadores em suas regras gramaticais.
+  */
+"[" |
+"]" |
 ";" |
 ":" |
 "," |
