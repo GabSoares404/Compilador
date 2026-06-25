@@ -57,10 +57,13 @@ void extrairVariaveisMIPS(AST* nodeIds, Stack* scopes) {
     AST* varNode = nodeIds->left;
     if (varNode != NULL) {
         if (varNode->type == NODE_IDENTIFICADOR) {
-            insertSymbol(scopes, varNode->lexema, 0); 
+            int pos = scopes->pos_livre++;
+            insertSymbol(scopes, varNode->lexema, 0, pos); 
         } else if (varNode->type == NODE_VETOR_DECL) {
             int tamanho = atoi(varNode->right->lexema);
-            insertVetor(scopes, varNode->left->lexema, 0, tamanho);
+            int pos = scopes->pos_livre;
+            scopes->pos_livre += tamanho;
+            insertVetor(scopes, varNode->left->lexema, 0, tamanho, pos);
         }
     }
     
