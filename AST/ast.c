@@ -20,65 +20,46 @@
  * ============================================================================
  */
 AST* createNode(NodeType type, char* lexema, int linha, AST* left, AST* right, AST* extra) {
-    
-    /* 
-     * ----------------------------------------------------------------------------
-     * 1. ALOCAÇÃO DE MEMÓRIA DINÂMICA
-     * ----------------------------------------------------------------------------
-     * A função `malloc` é usada em nível de C para reservar um bloco de espaço 
-     * contíguo no 'heap', com tamanho estrito correspondente à estrutura do nó. 
-     * Ao fazermos isso durante o processamento do Parser, garantimos que os dados
-     * da AST fiquem seguros e duradouros na memória ao longo de todo o ciclo de 
-     * vida da compilação.
-     */
+
     AST* node = (AST*) malloc(sizeof(AST));
-    
-    /* 
-     * ----------------------------------------------------------------------------
-     * 2. INICIALIZAÇÃO DOS DADOS BÁSICOS (TIPAGEM E LINHA)
-     * ----------------------------------------------------------------------------
-     * Preenchemos os parâmetros essenciais diretamente nas propriedades do nó recém 
-     * construído. Isso inclui sua classificação semântica (`type`) e de qual linha 
-     * do código original a expressão se originou (`linha`).
-     */
     node->type = type;   
     node->linha = linha; 
-    
-    /* 
-     * ----------------------------------------------------------------------------
-     * 3. CONEXÃO HIERÁRQUICA E ESTRUTURAL
-     * ----------------------------------------------------------------------------
-     * Os ponteiros `left`, `right` e `extra` (passados pelo Bison nos parâmetros) 
-     * referenciam fragmentos de nós processados no passo anterior da análise.
-     * Ao atrelar essas referências de memória no nó atual, ele imediatamente se torna 
-     * o "Pai" desses nós, cimentando a montagem conectada da árvore sintática.
-     */
     node->left = left;
     node->right = right;
     node->extra = extra;
+    node->params = NULL;  /* G-V2: padrão NULL para nós que não são funções */
     
-    /* 
-     * ----------------------------------------------------------------------------
-     * 4. GESTÃO SEGURA DE MEMÓRIA DE STRINGS (LEXEMA)
-     * ----------------------------------------------------------------------------
-     * O Lexer atualiza continuamente os textos extraídos de forma dinâmica em 
-     * um loop contínuo sob uma mesma área de buffer nativa (`yytext` ou ponteiros locais).
-     * Se associássemos as variáveis através de uma simples igualdade (node->lexema = lexema),
-     * a estrutura perderia os dados originais no minuto em que o próximo token fosse escaneado.
-     * 
-     * SOLUÇÃO TÉCNICA:
-     * Utilizamos explicitamente `strdup()` caso haja texto acompanhando o nó.
-     * Essa função aloca mais uma área livre silenciosamente e realiza a cópia idêntica  
-     * e exclusiva da string repassada, garantindo a sua imutabilidade durante 
-     * toda a execução do programa principal. Se não houver string alocável no contexto, 
-     * registramos `NULL` para economizar memória e indicarmos um nó de comando fechado.
-     */
     if (lexema != NULL) {
         node->lexema = strdup(lexema); 
     } else {
         node->lexema = NULL; 
     }
+    return node;
+}
 
-    /* O ponteiro referencial do nó recém-concluído é devolvido ao Parser C */
+/* ============================================================================
+ * [GV2] CONSTRUTOR ESPECIALIZADO PARA NÓS DE FUNÇÃO (G-V2)
+ * ============================================================================
+ * Cria um nó de declaração de função com todos os 4 ponteiros preenchidos:
+ * - params:  Lista de parâmetros formais (AST encadeada de NODE_PARAM)
+ * - left:    Tipo de retorno da função (NODE_TIPO)
+ * - right:   Corpo/bloco da função (NODE_BLOCO)
+ * - extra:   Uso livre (encadeamento de próxima função, etc.)
+ */
+AST* createFuncNode(NodeType type, char* lexema, int linha, AST* params, AST* tipoRetorno, AST* corpo, AST* extra) {
+
+    AST* node = (AST*) malloc(sizeof(AST));
+    node->type = type;
+    node->linha = linha;
+    node->left = tipoRetorno;
+    node->right = corpo;
+    node->extra = extra;
+    node->params = params;
+    
+    if (lexema != NULL) {
+        node->lexema = strdup(lexema);
+    } else {
+        node->lexema = NULL;
+    }
     return node;
 }
