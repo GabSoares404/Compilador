@@ -47,16 +47,18 @@ funcao [
 	
 ]
 principal
+[
+    lixo: int;
+]
      {
      escreva "Leitura do primeiro vetor";
      novalinha;
-     LeVetor (v1);
+     lixo = LeVetor(v1);
      escreva "Leitura do segundo vetor";
      novalinha;
-     LeVetor(v2);
-     somaVetor(v1,v2,vsoma);
+     lixo = LeVetor(v2);
+     lixo = somaVetor(v1,v2,vsoma);
      escreva "O vetor soma:";
      novalinha;
-     imprimeVetor(vsoma);
+     lixo = imprimeVetor(vsoma);
      }
-

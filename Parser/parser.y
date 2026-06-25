@@ -284,15 +284,12 @@ ListaParametrosTail : IDENTIFICADOR ':' Tipo {
                     | IDENTIFICADOR ':' Tipo ',' ListaParametrosTail {
                         AST* id = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
                         AST* p = createNode(NODE_PARAM, "param", yylineno, id, $3, NULL);
-                        /* Ligamos o próximo parâmetro na direita */
-                        p->right = $5;
-                        $$ = p;
+                        $$ = createNode(NODE_PARAM, "lista_param", yylineno, p, $5, NULL);
                     }
                     | IDENTIFICADOR '[' ']' ':' Tipo ',' ListaParametrosTail {
                         AST* id = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
                         AST* p = createNode(NODE_PARAM, "param_vetor", yylineno, id, $5, NULL);
-                        p->right = $7;
-                        $$ = p;
+                        $$ = createNode(NODE_PARAM, "lista_param", yylineno, p, $7, NULL);
                     }
                     ;
 
@@ -361,7 +358,7 @@ Comando : IDENTIFICADOR '=' Expr ';' {
         | RETORNE Expr ';' { $$ = createNode(NODE_RETORNE, "retorne", yylineno, $2, NULL, NULL); }
         | SE '(' Expr ')' ENTAO ListaComando FIMSE { $$ = createNode(NODE_COMANDO, "se", yylineno, $3, $6, NULL); }
         | SE '(' Expr ')' ENTAO ListaComando SENAO ListaComando FIMSE { $$ = createNode(NODE_COMANDO, "se", yylineno, $3, $6, $8); }
-        | ENQUANTO '(' Expr ')' ListaComando { $$ = createNode(NODE_COMANDO, "enquanto", yylineno, $3, $5, NULL); }
+        | ENQUANTO '(' Expr ')' Comando { $$ = createNode(NODE_COMANDO, "enquanto", yylineno, $3, $5, NULL); }
         | LEIA IDENTIFICADOR ';' { 
             AST* idNode = createNode(NODE_IDENTIFICADOR, $2, yylineno, NULL, NULL, NULL);
             $$ = createNode(NODE_COMANDO, "leia", yylineno, idNode, NULL, NULL); 
@@ -372,6 +369,10 @@ Comando : IDENTIFICADOR '=' Expr ';' {
             $$ = createNode(NODE_COMANDO, "leia", yylineno, vetorNode, NULL, NULL); 
         }
         | ESCREVA Expr ';' { $$ = createNode(NODE_COMANDO, "escreva", yylineno, $2, NULL, NULL); }
+        | IDENTIFICADOR '(' ListaArgs ')' ';' {
+             AST* id = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
+             $$ = createNode(NODE_CHAMADA_FUNC, "chamada", yylineno, id, $3, NULL);
+        }
         | NOVALINHA ';'    { $$ = createNode(NODE_NOVALINHA, "novalinha", yylineno, NULL, NULL, NULL); }
         | Bloco            { $$ = $1; }
         | ';' { $$ = createNode(NODE_COMANDO, "vazio", yylineno, NULL, NULL, NULL); }
@@ -426,7 +427,7 @@ PrimExpr : IDENTIFICADOR { $$ = createNode(NODE_IDENTIFICADOR, $1, yylineno, NUL
              $$ = createNode(NODE_CHAMADA_FUNC, "chamada", yylineno, id, $3, NULL);
          }
          | INTCONST        { $$ = createNode(NODE_INTCONST, $1, yylineno, NULL, NULL, NULL); }
-         | CADEIACARACTERES{ $$ = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL); }
+         | CADEIACARACTERES{ $$ = createNode(NODE_CARCONST, $1, yylineno, NULL, NULL, NULL); }
          | CARCONST        { $$ = createNode(NODE_CARCONST, $1, yylineno, NULL, NULL, NULL); }
          | '(' Expr ')'    { $$ = $2; }
          ;
@@ -438,8 +439,7 @@ ListaArgs : ListaArgsTail { $$ = $1; }
 ListaArgsTail : Expr { $$ = createNode(NODE_PARAM, "arg", yylineno, $1, NULL, NULL); }
               | Expr ',' ListaArgsTail { 
                   AST* p = createNode(NODE_PARAM, "arg", yylineno, $1, NULL, NULL);
-                  p->right = $3;
-                  $$ = p;
+                  $$ = createNode(NODE_PARAM, "lista_arg", yylineno, p, $3, NULL);
               }
               ;
 

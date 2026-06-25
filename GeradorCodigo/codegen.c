@@ -5,6 +5,7 @@
 
 // Variável global usada para criar IDs únicos nos rótulos (labels) do Assembly MIPS
 int label_count = 0;
+FILE* data_out = NULL;
 
 /* ============================================================================
  * IMPLEMENTAÇÃO DO GERADOR DE CÓDIGO (.C)
@@ -29,7 +30,7 @@ void cgenArgs(AST* argNode, FILE* out, Stack* scopes) {
     
     if (strcmp(argNode->lexema, "lista_arg") == 0) {
         cgenArgs(argNode->right, out, scopes); 
-        cgenEx(argNode->left, out, scopes); 
+        cgenEx(argNode->left->left, out, scopes); 
         fprintf(out, "\t# Empilhando argumento\n");
         fprintf(out, "\tsw $s0, 0($sp)\n");
         fprintf(out, "\taddiu $sp, $sp, -4\n");
@@ -113,10 +114,10 @@ void cgenEx(AST* expr, FILE* out, Stack* scopes) {
             /* [GV2]: Etapa 6C - Vetores passados por parametro. */
             if (var->is_vetor) {
                 if (var->kind == SYM_PARAM) {
-                    fprintf(out, "\t# Repassando parametro vetor (Endereço)\n");
+                    fprintf(out, "\t# Repassando parametro vetor (Endereco)\n");
                     fprintf(out, "\tlw $s0, %d(%s)\n", offset, reg_base);
                 } else {
-                    fprintf(out, "\t# Passando variavel vetor (Calculando Endereço Base)\n");
+                    fprintf(out, "\t# Passando variavel vetor (Calculando Endereco Base)\n");
                     fprintf(out, "\taddiu $s0, %s, %d\n", reg_base, offset);
                 }
             } else {
@@ -198,16 +199,16 @@ void cgenEx(AST* expr, FILE* out, Stack* scopes) {
         
         // Passo 1 da Máquina de Pilha: Salva o esquerdo temporariamente na pilha (em $sp).
         fprintf(out, "\t# Empilhando valor esquerdo do operador (%s)\n", expr->lexema);
-        fprintf(out, "\taddiu $sp, $sp, -4\n");  // Move a pilha 4 bytes para trás ANTES de salvar (protege as variáveis)
         fprintf(out, "\tsw $s0, 0($sp)\n");      // Grava $s0 na nova gaveta segura da pilha
+        fprintf(out, "\taddiu $sp, $sp, -4\n");  // Move a pilha 4 bytes para trás
         
         fprintf(out, "\t# [Operador %s]: Processando lado Direito\n", expr->lexema);
         cgenEx(expr->right, out, scopes);
         
         // Passo 2 da Máquina de Pilha: Puxa o esquerdo de volta mas joga no $t1.
         fprintf(out, "\t# Desempilhando valor para calculo final\n");
-        fprintf(out, "\tlw $t1, 0($sp)\n");     // Lê o valor que estava salvo de volta para o $t1
         fprintf(out, "\taddiu $sp, $sp, 4\n");  // Devolve a pilha para a base original
+        fprintf(out, "\tlw $t1, 0($sp)\n");     // Lê o valor que estava salvo de volta para o $t1
 
         // Passo 3 da Máquina de Pilha: Operação Assembly correspondente  (resultado no $s0).
         if (strcmp(expr->lexema, "+") == 0) fprintf(out, "\tadd $s0, $t1, $s0\n");
@@ -330,15 +331,19 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
                     fprintf(out, "\taddiu $sp, $sp, -%d\n", varsDeclaradas * 4);
                 }
                 
-                // 2. Saltar o código das funções (para não executá-las linearmente)
                 fprintf(out, "\tj inicio_principal\n\n");
                 
-                // 3. Processar Funções
-                cgenCmd(cmd->right, out, scopes);
-                
-                // 4. Rótulo da Main
+                // Rótulo da Main
                 fprintf(out, "\ninicio_principal:\n");
                 cgenCmd(cmd->extra, out, scopes);
+                
+                // Sistema Syscall: Exit (encerra o programa antes de cair no código das funções)
+                fprintf(out, "\n# Sair do Programa MIPS (Exit)\n");
+                fprintf(out, "\tli $v0, 10\n");
+                fprintf(out, "\tsyscall\n\n");
+                
+                // Processar Funções (após o Exit para evitar execução linear indesejada)
+                cgenCmd(cmd->right, out, scopes);
             } else {
                 // Fallback G-V1
                 pushScope(scopes); 
@@ -435,8 +440,8 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
                         /* Resolve lado direito e empilha o valor para protegê-lo */
                         /* durante a avaliação do índice (que pode usar a pilha) */
                         cgenEx(cmd->right, out, scopes);
-                        fprintf(out, "\taddiu $sp, $sp, -4\n");
                         fprintf(out, "\tsw $s0, 0($sp)\n");
+                        fprintf(out, "\taddiu $sp, $sp, -4\n");
                         
                         /* Resolve o índice */
                         cgenEx(cmd->left->right, out, scopes);
@@ -467,8 +472,8 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
                         fprintf(out, "\tadd $s0, $t1, $s0\n");
                         
                         /* Puxa valor direito salvo da pilha pra $t1 */
-                        fprintf(out, "\tlw $t1, 0($sp)\n");
                         fprintf(out, "\taddiu $sp, $sp, 4\n");
+                        fprintf(out, "\tlw $t1, 0($sp)\n");
                         
                         /* Salva valor no vetor */
                         fprintf(out, "\tsw $t1, 0($s0)\n");
@@ -577,10 +582,8 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
                     int str_lbl = label_count++;
                     
                     // Coloca de propósito na seção .data para criar a String estática (Asciiz)
-                    fprintf(out, "\t.data\n");
-                    fprintf(out, "str_lit_%d:\n", str_lbl);
-                    fprintf(out, "\t.asciiz %s\n", cmd->left->lexema);
-                    fprintf(out, "\t.text\n");
+                    fprintf(data_out, "str_lit_%d:\n", str_lbl);
+                    fprintf(data_out, "\t.asciiz %s\n", cmd->left->lexema);
                     
                     // Syscall código 4: Imprime textos alocados string base apontados pelo $a0
                     fprintf(out, "\t# Chamada syscall 4 - Escrever Texto Literal\n");
@@ -611,10 +614,8 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
         
         case NODE_NOVALINHA: {
             int nl_lbl = label_count++;
-            fprintf(out, "\t.data\n");
-            fprintf(out, "nl_lit_%d:\n", nl_lbl);
-            fprintf(out, "\t.asciiz \"\\n\"\n");
-            fprintf(out, "\t.text\n");
+            fprintf(data_out, "nl_lit_%d:\n", nl_lbl);
+            fprintf(data_out, "\t.asciiz \"\\n\"\n");
             fprintf(out, "\tli $v0, 4\n");
             fprintf(out, "\tla $a0, nl_lit_%d\n", nl_lbl);
             fprintf(out, "\tsyscall\n");
@@ -691,6 +692,12 @@ void generateCode(AST* root, Stack* scopes, const char* out_filename) {
         printf("ERRO FATAL: Nao foi possivel criar o arquivo %s!\n", out_filename);
         exit(1);
     }
+    
+    data_out = fopen("data_section.tmp", "w+");
+    if (!data_out) {
+        printf("ERRO FATAL: Nao foi possivel criar arquivo temporario!\n");
+        exit(1);
+    }
 
     // Marcações MIPS (Data Segment e Main Entrypoint Globais)
     fprintf(out, ".text\n");
@@ -706,11 +713,15 @@ void generateCode(AST* root, Stack* scopes, const char* out_filename) {
     initStack(scopes);
 
     cgenCmd(root, out, scopes);
-
-    // Sistema Syscall: Operador '10' requisita interrupção estática limpa fechando processo logado no emulador SPIM MIPS
-    fprintf(out, "\n# Sair do Programa MIPS (Exit)\n");
-    fprintf(out, "\tli $v0, 10\n");
-    fprintf(out, "\tsyscall\n");
-
+    
+    fprintf(out, "\n.data\n");
+    rewind(data_out);
+    char buf[1024];
+    while(fgets(buf, sizeof(buf), data_out)) {
+        fputs(buf, out);
+    }
+    fclose(data_out);
+    remove("data_section.tmp");
+    
     fclose(out);
 }

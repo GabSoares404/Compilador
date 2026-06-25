@@ -24,6 +24,8 @@ principal
 		soma: int;
 	]
 	{
+		escreva "Leitura do primeiro vetor";
+     	novalinha;
 		i=0;
 		enquanto (i<10) {
 			leia vet[i];
