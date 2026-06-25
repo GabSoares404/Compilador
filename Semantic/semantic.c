@@ -143,7 +143,7 @@ void extrairVariaveis(AST* nodeIds, Stack* scopes, int tipoHerdado) {
     extrairVariaveis(nodeIds->right, scopes, tipoHerdado);
 }
 
-int tipo_retorno_atual = -1; /* [GV2]: Variável global temporária para validar tipos de RETORNE */
+int tipo_retorno_atual = -1;
 
 void checkSemantics(AST* node, Stack* scopes) {
     if (node == NULL) return;
@@ -164,7 +164,6 @@ void checkSemantics(AST* node, Stack* scopes) {
                 /* É o nó gerado por DeclPrograma. O bloco dele está em node->left */
                 checkSemantics(node->left, scopes);
             } else {
-                /* Compatibilidade G-V1 */
                 initStack(scopes);
                 pushScope(scopes);
                 checkSemantics(node->left, scopes);
@@ -335,7 +334,6 @@ void checkSemantics(AST* node, Stack* scopes) {
             break;
         }
         
-        case NODE_VETOR_ACESSO:
         case NODE_CHAMADA_FUNC:
             /* Inferência de tipo já cuida das regras e busca das chamadas/acessos */
             inferirTipo(node, scopes);

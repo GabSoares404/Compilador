@@ -330,7 +330,6 @@ void cgenCmd(AST* cmd, FILE* out, Stack* scopes) {
             fprintf(out, "# ========================================\n");
             fprintf(out, "f_entry_%s:\n", funcName);
             
-            // Prologue do Callee
             fprintf(out, "\tmove $fp, $sp\n");
             fprintf(out, "\tsw $ra, 0($sp)\n");
             fprintf(out, "\taddiu $sp, $sp, -4\n");
@@ -632,7 +631,7 @@ void generateCode(AST* root, Stack* scopes, const char* out_filename) {
     fprintf(out, ".globl main\n");
     fprintf(out, "main:\n");
 
-    // Equalização Limítrofe: Faz com que o MIPS copie o endereço base que estava na Pilha $SP para ser nosso topo oficial imutável de Offset $FP.
+    // Equalização: Faz com que o MIPS copie o endereço base que estava na Pilha $SP para ser nosso topo oficial imutável de Offset $FP.
     fprintf(out, "\t# [GV2]: $s1 aponta para a base das variaveis globais\n");
     fprintf(out, "\tmove $s1, $sp\n");
     fprintf(out, "\tmove $fp, $sp\n\n");
