@@ -80,14 +80,14 @@ void destroyStack(Stack* s) {
     }
 }
 
-void insertSymbol(Stack* s, char* nome, int tipo) {
+void insertSymbol(Stack* s, char* nome, int tipo, int posicao) {
     if (s->topo < 0) return;
 
     Symbol* novavar = (Symbol*)malloc(sizeof(Symbol));
     
     novavar->nome = strdup(nome);
     novavar->tipo = tipo;
-    novavar->pos = s->pos_livre++; 
+    novavar->pos = posicao; 
     
     /* [GV2]: Inicializando campos do novo Symbol */
     novavar->escopo = s->escopo_atual;
@@ -105,7 +105,7 @@ void insertSymbol(Stack* s, char* nome, int tipo) {
 }
 
 /* [GV2]: INSERÇÃO DE VETOR */
-void insertVetor(Stack* s, char* nome, int tipo, int tamanho) {
+void insertVetor(Stack* s, char* nome, int tipo, int tamanho, int posicao) {
     if (s->topo < 0) return;
 
     Symbol* novavar = (Symbol*)malloc(sizeof(Symbol));
@@ -113,8 +113,7 @@ void insertVetor(Stack* s, char* nome, int tipo, int tamanho) {
     novavar->nome = strdup(nome);
     novavar->tipo = tipo;
     /* Um vetor de N elementos ocupa N espaços */
-    novavar->pos = s->pos_livre;
-    s->pos_livre += tamanho; 
+    novavar->pos = posicao; 
     
     novavar->escopo = s->escopo_atual;
     novavar->kind = SYM_VAR;

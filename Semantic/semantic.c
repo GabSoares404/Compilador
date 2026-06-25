@@ -117,8 +117,9 @@ void extrairVariaveis(AST* nodeIds, Stack* scopes, int tipoHerdado) {
                 printf("ERRO SEMANTICO: Variavel '%s' ja declarada neste escopo! Linha %d\n", varNode->lexema, varNode->linha);
                 exit(1);
             }
-            insertSymbol(scopes, varNode->lexema, tipoHerdado);
-            printf("[SEMANTICA] Variavel '%s' do tipo %d inserida.\n", varNode->lexema, tipoHerdado);
+            int pos = scopes->pos_livre++;
+            insertSymbol(scopes, varNode->lexema, tipoHerdado, pos);
+            printf("[SEMANTICA] Variavel '%s' do tipo %d inserida na pos %d.\n", varNode->lexema, tipoHerdado, pos);
         } 
         else if (varNode->type == NODE_VETOR_DECL) {
             char* nomeVetor = varNode->left->lexema;
@@ -132,8 +133,10 @@ void extrairVariaveis(AST* nodeIds, Stack* scopes, int tipoHerdado) {
                 printf("ERRO SEMANTICO: Vetor '%s' com tamanho invalido! Linha %d\n", nomeVetor, varNode->linha);
                 exit(1);
             }
-            insertVetor(scopes, nomeVetor, tipoHerdado, tamanho);
-            printf("[SEMANTICA] Vetor '%s' de tamanho %d inserido.\n", nomeVetor, tamanho);
+            int pos = scopes->pos_livre;
+            scopes->pos_livre += tamanho;
+            insertVetor(scopes, nomeVetor, tipoHerdado, tamanho, pos);
+            printf("[SEMANTICA] Vetor '%s' de tamanho %d inserido na pos %d.\n", nomeVetor, tamanho, pos);
         }
     }
 

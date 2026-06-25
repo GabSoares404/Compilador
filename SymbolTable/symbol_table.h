@@ -60,10 +60,10 @@ void popScope(Stack* s);
 void destroyStack(Stack* s); 
 
 /* Inserção de variáveis normais */
-void insertSymbol(Stack* s, char* nome, int tipo);
+void insertSymbol(Stack* s, char* nome, int tipo, int posicao);
 
-/* Inserção de vetores */
-void insertVetor(Stack* s, char* nome, int tipo, int tamanho);
+/* [GV2]: INSERÇÃO DE VETOR */
+void insertVetor(Stack* s, char* nome, int tipo, int tamanho, int posicao);
 
 /* Inserção de funções */
 void insertFunction(Stack* s, char* nome, int num_params, int tipo_retorno, Param* params);
