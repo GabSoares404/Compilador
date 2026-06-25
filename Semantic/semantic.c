@@ -43,6 +43,68 @@ int inferirTipo(AST* expr, Stack* scopes) {
         }
     }
     
+    if (expr->type == NODE_VETOR_ACESSO) {
+        Symbol* var = lookup(scopes, expr->left->lexema);
+        if (var != NULL) {
+            int tipoIndice = inferirTipo(expr->right, scopes);
+            if (tipoIndice != 0) {
+                printf("ERRO SEMANTICO: Indice do vetor '%s' deve ser inteiro! Linha %d\n", expr->left->lexema, expr->linha);
+                exit(1);
+            }
+            return var->tipo;
+        } else {
+            printf("ERRO SEMANTICO: Vetor '%s' nao declarado! Linha %d\n", expr->left->lexema, expr->linha);
+            exit(1);
+        }
+    }
+
+    if (expr->type == NODE_CHAMADA_FUNC) {
+        Symbol* var = lookup(scopes, expr->left->lexema);
+        if (var != NULL) {
+            if (var->kind != SYM_FUNC) {
+                printf("ERRO SEMANTICO: '%s' nao e uma funcao! Linha %d\n", var->nome, expr->linha);
+                exit(1);
+            }
+            
+            /* Validação de argumentos */
+            AST* argNode = expr->right;
+            Param* p = var->params;
+            int argCount = 0;
+            
+            while (argNode != NULL && p != NULL) {
+                AST* currArg = argNode;
+                if (strcmp(argNode->lexema, "lista_arg") == 0) {
+                    currArg = argNode->left;
+                }
+                
+                int tipoArg = inferirTipo(currArg, scopes);
+                if (tipoArg != p->tipo && tipoArg != -1) {
+                    printf("ERRO SEMANTICO: Tipo incompativel no parametro '%s' da funcao '%s'! Linha %d\n", p->nome, var->nome, expr->linha);
+                    exit(1);
+                }
+                
+                argCount++;
+                p = p->next;
+                
+                if (strcmp(argNode->lexema, "lista_arg") == 0) {
+                    argNode = argNode->right;
+                } else {
+                    argNode = NULL;
+                }
+            }
+            
+            if (argNode != NULL || p != NULL) {
+                printf("ERRO SEMANTICO: Numero incorreto de argumentos para a funcao '%s'! Linha %d\n", var->nome, expr->linha);
+                exit(1);
+            }
+            
+            return var->tipo_retorno;
+        } else {
+            printf("ERRO SEMANTICO: Funcao '%s' nao declarada! Linha %d\n", expr->left->lexema, expr->linha);
+            exit(1);
+        }
+    }
+
     if (expr->type == NODE_OP) {
         int ladoE = inferirTipo(expr->left, scopes);
         int ladoD = inferirTipo(expr->right, scopes);
@@ -87,21 +149,37 @@ void extrairVariaveis(AST* nodeIds, Stack* scopes, int tipoHerdado) {
     
     AST* varNode = nodeIds->left;
     
-    if (varNode != NULL && varNode->type == NODE_IDENTIFICADOR) {
-        
-        Symbol* jaExiste = lookupCurrentScope(scopes, varNode->lexema);
-        if (jaExiste != NULL) {
-            printf("ERRO SEMANTICO: Variavel '%s' ja declarada neste escopo! Linha %d\n", varNode->lexema, varNode->linha);
-            exit(1);
+    if (varNode != NULL) {
+        if (varNode->type == NODE_IDENTIFICADOR) {
+            Symbol* jaExiste = lookupCurrentScope(scopes, varNode->lexema);
+            if (jaExiste != NULL) {
+                printf("ERRO SEMANTICO: Variavel '%s' ja declarada neste escopo! Linha %d\n", varNode->lexema, varNode->linha);
+                exit(1);
+            }
+            insertSymbol(scopes, varNode->lexema, tipoHerdado);
+            printf("[SEMANTICA] Variavel '%s' do tipo %d inserida.\n", varNode->lexema, tipoHerdado);
+        } 
+        else if (varNode->type == NODE_VETOR_DECL) {
+            char* nomeVetor = varNode->left->lexema;
+            Symbol* jaExiste = lookupCurrentScope(scopes, nomeVetor);
+            if (jaExiste != NULL) {
+                printf("ERRO SEMANTICO: Vetor '%s' ja declarado neste escopo! Linha %d\n", nomeVetor, varNode->linha);
+                exit(1);
+            }
+            int tamanho = atoi(varNode->right->lexema);
+            if (tamanho <= 0) {
+                printf("ERRO SEMANTICO: Vetor '%s' com tamanho invalido! Linha %d\n", nomeVetor, varNode->linha);
+                exit(1);
+            }
+            insertVetor(scopes, nomeVetor, tipoHerdado, tamanho);
+            printf("[SEMANTICA] Vetor '%s' de tamanho %d inserido.\n", nomeVetor, tamanho);
         }
-
-        insertSymbol(scopes, varNode->lexema, tipoHerdado);
-        
-        printf("[SEMANTICA] Variavel '%s' do tipo %d inserida na Tabela de Simbolos.\n", varNode->lexema, tipoHerdado);
     }
 
     extrairVariaveis(nodeIds->right, scopes, tipoHerdado);
 }
+
+int tipo_retorno_atual = -1; /* [GV2]: Variável global temporária para validar tipos de RETORNE */
 
 
 /* 
@@ -129,25 +207,114 @@ void checkSemantics(AST* node, Stack* scopes) {
     switch (node->type) {
 
         case NODE_PROGRAMA:
-            initStack(scopes);
-            /* [MODIFICACAO] Cria um unico escopo global. Promove todas as variaveis 
-             * declaradas em qualquer bloco interno a ficarem vivas ate o fim da execucao. */
-            pushScope(scopes);
+            if (strcmp(node->lexema, "programa") == 0) {
+                initStack(scopes);
+                pushScope(scopes); // Inicializa o escopo global
+                
+                checkSemantics(node->left, scopes);  /* [GV2]: Globais */
+                checkSemantics(node->right, scopes); /* [GV2]: Funções */
+                
+                tipo_retorno_atual = -1; /* O bloco principal não possui retorno estrito */
+                checkSemantics(node->extra, scopes); /* [GV2]: Principal */
+            } else if (strcmp(node->lexema, "principal") == 0) {
+                /* É o nó gerado por DeclPrograma. O bloco dele está em node->left */
+                checkSemantics(node->left, scopes);
+            } else {
+                /* Compatibilidade G-V1 */
+                initStack(scopes);
+                pushScope(scopes);
+                checkSemantics(node->left, scopes);
+            }
+            break;
+
+        case NODE_DECL_GLOBAL:
             checkSemantics(node->left, scopes);
             break;
 
+        case NODE_LISTA_FUNC:
+            checkSemantics(node->left, scopes);
+            checkSemantics(node->right, scopes);
+            break;
+
+        case NODE_DECL_FUNC: {
+            char* funcName = node->lexema;
+            Symbol* jaExiste = lookupCurrentScope(scopes, funcName);
+            if (jaExiste != NULL) {
+                printf("ERRO SEMANTICO: Funcao '%s' ja declarada! Linha %d\n", funcName, node->linha);
+                exit(1);
+            }
+            
+            int tipo_ret = -1;
+            if (node->left != NULL) {
+                if (strcmp(node->left->lexema, "int") == 0) tipo_ret = 0;
+                else if (strcmp(node->left->lexema, "car") == 0) tipo_ret = 1;
+            }
+            
+            /* Processar parâmetros da função */
+            Param* paramsHead = NULL;
+            Param* paramsTail = NULL;
+            int num_params = 0;
+            
+            AST* pNode = node->params;
+            while (pNode != NULL) {
+                AST* currParam = pNode;
+                if (strcmp(pNode->lexema, "lista_param") == 0) {
+                    currParam = pNode->left;
+                }
+                
+                char* pName = currParam->left->lexema;
+                int pTipo = -1;
+                if (strcmp(currParam->right->lexema, "int") == 0) pTipo = 0;
+                else if (strcmp(currParam->right->lexema, "car") == 0) pTipo = 1;
+                int pIsVetor = (strcmp(currParam->lexema, "param_vetor") == 0) ? 1 : 0;
+                
+                Param* novo = (Param*)malloc(sizeof(Param));
+                novo->nome = strdup(pName);
+                novo->tipo = pTipo;
+                novo->is_vetor = pIsVetor;
+                novo->next = NULL;
+                
+                if (paramsTail == NULL) { paramsHead = novo; paramsTail = novo; }
+                else { paramsTail->next = novo; paramsTail = novo; }
+                
+                num_params++;
+                if (strcmp(pNode->lexema, "lista_param") == 0) pNode = pNode->right;
+                else pNode = NULL;
+            }
+            
+            insertFunction(scopes, funcName, num_params, tipo_ret, paramsHead);
+            
+            pushScope(scopes);
+            
+            /* Inserir os parâmetros formais no novo escopo local da função */
+            Param* p = paramsHead;
+            int offsetParam = 12; /* Ajustável no CodeGen */
+            while (p != NULL) {
+                insertParam(scopes, p->nome, p->tipo, offsetParam, p->is_vetor);
+                offsetParam += 4;
+                p = p->next;
+            }
+            
+            tipo_retorno_atual = tipo_ret;
+            checkSemantics(node->right, scopes); /* Analisa o Corpo da Função */
+            tipo_retorno_atual = -1;
+            
+            popScope(scopes);
+            break;
+        }
+
         case NODE_BLOCO:
+            /* Se o bloco for filho de Principal ou Bloco vazio, criamos escopo. 
+               Se for de função, a função JÁ criou o escopo antes. 
+               Aqui vamos simplificar e permitir que o Bloco crie seu escopo local */
             printf("[SEMANTICA] Entrando em um bloco na linha %d...\n", node->linha);
             
-            /* [MODIFICACAO] Abertura e fechamento de novos escopos foram desativados 
-             * para evitar que variaveis de blocos morram, permitindo comportamentos
-             * amplos de escopo testados no PA.g e Soma.g */
-            // pushScope(scopes);
+            pushScope(scopes); // Abre um novo escopo local
             
             checkSemantics(node->left, scopes);
             checkSemantics(node->right, scopes);
             
-            // popScope(scopes);
+            popScope(scopes); // Encerra o escopo local
             
             printf("[SEMANTICA] Saindo do bloco da linha %d.\n", node->linha);
             break;
@@ -212,6 +379,25 @@ void checkSemantics(AST* node, Stack* scopes) {
         case NODE_OP:
             checkSemantics(node->left, scopes);
             checkSemantics(node->right, scopes);
+            break;
+
+        case NODE_RETORNE: {
+            if (tipo_retorno_atual == -1) {
+                printf("ERRO SEMANTICO: Comando 'retorne' fora de uma funcao! Linha %d\n", node->linha);
+                exit(1);
+            }
+            int exprTipo = inferirTipo(node->left, scopes);
+            if (exprTipo != tipo_retorno_atual && exprTipo != -1) {
+                printf("ERRO SEMANTICO: Tipo de retorno incompativel! Linha %d\n", node->linha);
+                exit(1);
+            }
+            break;
+        }
+        
+        case NODE_VETOR_ACESSO:
+        case NODE_CHAMADA_FUNC:
+            /* Inferência de tipo já cuida das regras e busca das chamadas/acessos */
+            inferirTipo(node, scopes);
             break;
 
         case NODE_IDENTIFICADOR: 

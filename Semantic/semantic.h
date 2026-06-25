@@ -13,8 +13,9 @@
  * 
  * PARA QUE SERVE: Imediatamente após a AST ser construída topologicamente pelo 
  * Parser (Bison), evoca-se essas funções para vasculhar os nós em busca de erros 
- * de tipo ou coerência computacional restritos à linguagem G-V1: variáveis ocultas, 
- * coerções inválidas (Type Checking) e duplos declaradores no mesmo referencial limitrofe.
+ * de tipo ou coerência computacional restritos à linguagem G-V2: variáveis ocultas, 
+ * coerções inválidas (Type Checking), passagem errada de parâmetros de vetor e
+ * duplos declaradores no mesmo referencial limitrofe.
  * ============================================================================
  */
 
