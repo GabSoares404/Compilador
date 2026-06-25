@@ -66,6 +66,7 @@ void yyerror(const char *s); /* Assinatura protótipo pra avisos impiedosos de c
  * uso prioritário de resgate com 'yylval.str'.
  */
 %token PRINCIPAL INT CAR LEIA ESCREVA NOVALINHA SE ENTAO SENAO FIMSE ENQUANTO
+%token GLOBAL FUNCAO RETORNE
 %token OU E IGUAL DIFERENTE MAIORIGUAL MENORIGUAL
 %token <str> IDENTIFICADOR INTCONST CADEIACARACTERES CARCONST
 
@@ -74,7 +75,7 @@ void yyerror(const char *s); /* Assinatura protótipo pra avisos impiedosos de c
  * Entidades lógicas abstratas gramaticais engatilhadores. A regra "<node>" barra falhas, 
  * exigindo sob erro fatal que eles emitam e se liguem à infraestrutura global da AST.
  */
-%type <node> Programa DeclPrograma Bloco VarSection ListaDeclVar DeclVar Tipo ListaIds ListaComando Comando Expr OrExpr AndExpr EqExpr DesigExpr AddExpr MulExpr UnExpr PrimExpr IdComLinha
+%type <node> Programa DeclPrograma Bloco VarSection ListaDeclVar DeclVar Tipo ListaIds ListaComando Comando Expr OrExpr AndExpr EqExpr DesigExpr AddExpr MulExpr UnExpr PrimExpr DeclVarGlobais DeclFunc ListaFuncoes ListaParametros ListaParametrosTail DeclVarItem ListaArgs ListaArgsTail
 
 /* Aponta a Raiz mor primária a qual a gramática precisa reduzir até satisfazer 100% o PC */
 %start Programa
@@ -234,8 +235,66 @@ void yyerror(const char *s); /* Assinatura protótipo pra avisos impiedosos de c
 
 %%
 
-Programa : DeclPrograma { ast_raiz = $1; }
+/* 
+ * [GV2] ESTRUTURA GLOBAL DO PROGRAMA
+ * O QUE É: A regra raiz agora exige blocos de variáveis globais e declaração de funções antes do programa principal.
+ * PARA QUE SERVE: Isso permite criar variáveis de escopo global (armazenadas a partir de $s1 no MIPS) e declarar funções acessíveis no código inteiro.
+ */
+Programa : DeclVarGlobais DeclFunc DeclPrograma { 
+             /* AST Raiz agora abraça Globais, Funções e o Principal */
+             ast_raiz = createNode(NODE_PROGRAMA, "programa", yylineno, $1, $2, $3); 
+         }
          ;
+
+DeclVarGlobais : GLOBAL VarSection { $$ = createNode(NODE_DECL_GLOBAL, "global", yylineno, $2, NULL, NULL); }
+               | /* vazio */       { $$ = NULL; }
+               ;
+
+/* 
+ * [GV2] REGRAS DE FUNÇÕES
+ * O QUE É: Regras para listar funções (ListaFuncoes) e seus parâmetros formais (ListaParametros).
+ * PARA QUE SERVE: Cria nós NODE_DECL_FUNC e nós encadeados NODE_PARAM que serão usados para popular a Tabela de Símbolos.
+ */
+DeclFunc : FUNCAO '[' ListaFuncoes ']' { $$ = $3; }
+         | /* vazio */                 { $$ = NULL; }
+         ;
+
+ListaFuncoes : IDENTIFICADOR '(' ListaParametros ')' ':' Tipo Bloco ListaFuncoes {
+                 /* createFuncNode amarra (lexema, linha, params, tipoRetorno, corpo, proxima_funcao) */
+                 AST* funcNode = createFuncNode(NODE_DECL_FUNC, $1, yylineno, $3, $6, $7, NULL);
+                 $$ = createNode(NODE_LISTA_FUNC, "funcoes", yylineno, funcNode, $8, NULL);
+             }
+             | /* vazio */ { $$ = NULL; }
+             ;
+
+ListaParametros : ListaParametrosTail { $$ = $1; }
+                | /* vazio */         { $$ = NULL; }
+                ;
+
+ListaParametrosTail : IDENTIFICADOR ':' Tipo {
+                        AST* id = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
+                        $$ = createNode(NODE_PARAM, "param", yylineno, id, $3, NULL);
+                    }
+                    | IDENTIFICADOR '[' ']' ':' Tipo {
+                        /* G-V2: Parâmetro vetor passado por referência */
+                        AST* id = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
+                        AST* param = createNode(NODE_PARAM, "param_vetor", yylineno, id, $5, NULL);
+                        $$ = param;
+                    }
+                    | IDENTIFICADOR ':' Tipo ',' ListaParametrosTail {
+                        AST* id = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
+                        AST* p = createNode(NODE_PARAM, "param", yylineno, id, $3, NULL);
+                        /* Ligamos o próximo parâmetro na direita */
+                        p->right = $5;
+                        $$ = p;
+                    }
+                    | IDENTIFICADOR '[' ']' ':' Tipo ',' ListaParametrosTail {
+                        AST* id = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
+                        AST* p = createNode(NODE_PARAM, "param_vetor", yylineno, id, $5, NULL);
+                        p->right = $7;
+                        $$ = p;
+                    }
+                    ;
 
 DeclPrograma : PRINCIPAL Bloco { $$ = createNode(NODE_PROGRAMA, "principal", yylineno, $2, NULL, NULL); }
              ;
@@ -244,31 +303,37 @@ Bloco : '{' ListaComando '}'             { $$ = createNode(NODE_BLOCO, "bloco", 
       | VarSection '{' ListaComando '}'  { $$ = createNode(NODE_BLOCO, "bloco_var", yylineno, $1, $3, NULL); }
       ;
 
-VarSection : '{' ListaDeclVar '}' { $$ = $2; }
+VarSection : '[' ListaDeclVar ']' { $$ = $2; }
            ;
 
 /* 
- * [MODIFICACAO] 'IdComLinha' atua como passo intermediario para evitar conflitos de reducao 
- * e extrair o yylineno EXATO no instante em que a variavel e identificada (antes do ';').
- * Resolve o problema do erro semantico printando a linha posterior em declaracoes multiplas.
+ * [GV2] DECLARAÇÃO DE VETORES
+ * O QUE É: Reconhece `IDENTIFICADOR '[' INTCONST ']'` para criar vetores com tamanho específico.
+ * PARA QUE SERVE: Cria o nó especializado NODE_VETOR_DECL que o gerador de código usa para alocar arrays na memória.
  */
-IdComLinha : IDENTIFICADOR { $$ = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL); } ;
+DeclVarItem : IDENTIFICADOR { $$ = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL); }
+            | IDENTIFICADOR '[' INTCONST ']' { 
+                AST* id = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
+                AST* tam = createNode(NODE_INTCONST, $3, yylineno, NULL, NULL, NULL);
+                $$ = createNode(NODE_VETOR_DECL, "vetor_decl", yylineno, id, tam, NULL);
+            }
+            ;
 
-ListaDeclVar : IdComLinha DeclVar ':' Tipo ';' ListaDeclVar { 
-                 AST* idNode = $1;
-                 AST* vars = createNode(NODE_DECL_VAR, "ids", idNode->linha, idNode, $2, $4);
-                 $$ = createNode(NODE_DECL_VAR, "lista_var", idNode->linha, vars, $6, NULL);
+ListaDeclVar : DeclVarItem DeclVar ':' Tipo ';' ListaDeclVar { 
+                 AST* itemNode = $1;
+                 AST* vars = createNode(NODE_DECL_VAR, "ids", itemNode->linha, itemNode, $2, $4);
+                 $$ = createNode(NODE_DECL_VAR, "lista_var", itemNode->linha, vars, $6, NULL);
              }
-             | IdComLinha DeclVar ':' Tipo ';' {
-                 AST* idNode = $1;
-                 $$ = createNode(NODE_DECL_VAR, "ids", idNode->linha, idNode, $2, $4);
+             | DeclVarItem DeclVar ':' Tipo ';' {
+                 AST* itemNode = $1;
+                 $$ = createNode(NODE_DECL_VAR, "ids", itemNode->linha, itemNode, $2, $4);
              }
              ;
 
 DeclVar : /* epsilon - engate vazio opcional permitindo cancelamento do laço */     { $$ = NULL; }
-        | ',' IdComLinha DeclVar { 
-             AST* idNode = $2;
-             $$ = createNode(NODE_DECL_VAR, "ids", idNode->linha, idNode, $3, NULL);
+        | ',' DeclVarItem DeclVar { 
+             AST* itemNode = $2;
+             $$ = createNode(NODE_DECL_VAR, "ids", itemNode->linha, itemNode, $3, NULL);
         }
         ;
 
@@ -284,20 +349,31 @@ ListaComando : ListaComando Comando  { $$ = createNode(NODE_LISTA_COMANDO, "coma
              | Comando               { $$ = $1; }
              ;
 
-Comando : LEIA IDENTIFICADOR ';' { 
-            AST* idNode = createNode(NODE_IDENTIFICADOR, $2, yylineno, NULL, NULL, NULL);
-            $$ = createNode(NODE_COMANDO, "leia", yylineno, idNode, NULL, NULL); 
-        }
-        | ESCREVA Expr ';' { $$ = createNode(NODE_COMANDO, "escreva", yylineno, $2, NULL, NULL); }
-        | NOVALINHA ';' { $$ = createNode(NODE_NOVALINHA, "novalinha", yylineno, NULL, NULL, NULL); }
-        | IDENTIFICADOR '=' Expr ';' { 
+Comando : IDENTIFICADOR '=' Expr ';' { 
             AST* idNode = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
             $$ = createNode(NODE_COMANDO, "=", yylineno, idNode, $3, NULL); 
         }
+        | IDENTIFICADOR '[' Expr ']' '=' Expr ';' {
+            AST* idNode = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
+            AST* vetorNode = createNode(NODE_VETOR_ACESSO, "vetor_acesso", yylineno, idNode, $3, NULL);
+            $$ = createNode(NODE_COMANDO, "=", yylineno, vetorNode, $6, NULL);
+        }
+        | RETORNE Expr ';' { $$ = createNode(NODE_RETORNE, "retorne", yylineno, $2, NULL, NULL); }
         | SE '(' Expr ')' ENTAO ListaComando FIMSE { $$ = createNode(NODE_COMANDO, "se", yylineno, $3, $6, NULL); }
-        | SE '(' Expr ')' ENTAO ListaComando SENAO ListaComando FIMSE { $$ = createNode(NODE_COMANDO, "se_senao", yylineno, $3, $6, $8); }
-        | ENQUANTO '(' Expr ')' Comando { $$ = createNode(NODE_COMANDO, "enquanto", yylineno, $3, $5, NULL); }
-        | Bloco { $$ = $1; } 
+        | SE '(' Expr ')' ENTAO ListaComando SENAO ListaComando FIMSE { $$ = createNode(NODE_COMANDO, "se", yylineno, $3, $6, $8); }
+        | ENQUANTO '(' Expr ')' ListaComando { $$ = createNode(NODE_COMANDO, "enquanto", yylineno, $3, $5, NULL); }
+        | LEIA IDENTIFICADOR ';' { 
+            AST* idNode = createNode(NODE_IDENTIFICADOR, $2, yylineno, NULL, NULL, NULL);
+            $$ = createNode(NODE_COMANDO, "leia", yylineno, idNode, NULL, NULL); 
+        }
+        | LEIA IDENTIFICADOR '[' Expr ']' ';' {
+            AST* idNode = createNode(NODE_IDENTIFICADOR, $2, yylineno, NULL, NULL, NULL);
+            AST* vetorNode = createNode(NODE_VETOR_ACESSO, "vetor_acesso", yylineno, idNode, $4, NULL);
+            $$ = createNode(NODE_COMANDO, "leia", yylineno, vetorNode, NULL, NULL); 
+        }
+        | ESCREVA Expr ';' { $$ = createNode(NODE_COMANDO, "escreva", yylineno, $2, NULL, NULL); }
+        | NOVALINHA ';'    { $$ = createNode(NODE_NOVALINHA, "novalinha", yylineno, NULL, NULL, NULL); }
+        | Bloco            { $$ = $1; }
         | ';' { $$ = createNode(NODE_COMANDO, "vazio", yylineno, NULL, NULL, NULL); }
         ;
 
@@ -340,12 +416,32 @@ UnExpr : '+' PrimExpr         { $$ = createNode(NODE_OP, "+", yylineno, NULL, $2
        | PrimExpr             { $$ = $1; }
        ;
 
-PrimExpr : IDENTIFICADOR      { $$ = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL); }
-         | INTCONST           { $$ = createNode(NODE_INTCONST, $1, yylineno, NULL, NULL, NULL); }
-         | CARCONST           { $$ = createNode(NODE_CARCONST, $1, yylineno, NULL, NULL, NULL); }
-         | CADEIACARACTERES   { $$ = createNode(NODE_CARCONST, $1, yylineno, NULL, NULL, NULL); }
-         | '(' Expr ')'       { $$ = $2; }
+PrimExpr : IDENTIFICADOR { $$ = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL); }
+         | IDENTIFICADOR '[' Expr ']' { 
+             AST* id = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
+             $$ = createNode(NODE_VETOR_ACESSO, "vetor_acesso", yylineno, id, $3, NULL);
+         }
+         | IDENTIFICADOR '(' ListaArgs ')' {
+             AST* id = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL);
+             $$ = createNode(NODE_CHAMADA_FUNC, "chamada", yylineno, id, $3, NULL);
+         }
+         | INTCONST        { $$ = createNode(NODE_INTCONST, $1, yylineno, NULL, NULL, NULL); }
+         | CADEIACARACTERES{ $$ = createNode(NODE_IDENTIFICADOR, $1, yylineno, NULL, NULL, NULL); }
+         | CARCONST        { $$ = createNode(NODE_CARCONST, $1, yylineno, NULL, NULL, NULL); }
+         | '(' Expr ')'    { $$ = $2; }
          ;
+
+ListaArgs : ListaArgsTail { $$ = $1; }
+          | /* vazio */   { $$ = NULL; }
+          ;
+
+ListaArgsTail : Expr { $$ = createNode(NODE_PARAM, "arg", yylineno, $1, NULL, NULL); }
+              | Expr ',' ListaArgsTail { 
+                  AST* p = createNode(NODE_PARAM, "arg", yylineno, $1, NULL, NULL);
+                  p->right = $3;
+                  $$ = p;
+              }
+              ;
 
 
 %%
