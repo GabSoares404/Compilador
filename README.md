@@ -116,35 +116,35 @@ No terminal, apenas navegue até a pasta do projeto que contém este README e di
 make clean
 make
 ```
-Se tudo der certo, um arquivo sem extensão nenhuma chamado **`g-v1`** irá surgir na sua pasta. Ele é o próprio compilador.
+Se tudo der certo, um arquivo sem extensão nenhuma chamado **`g-v2`** irá surgir na sua pasta. Ele é o próprio compilador.
 
 ---
 
 ## 💻 Parte 2: Traduzindo o primeiro Código
 Para que o compilador funcione, você precisa escrever algo na linguagem inventada dele. 
-Crie um arquivo chamado **`teste.g`** e escreva o código nele, como o exemplo abaixo (O G-V1 exige rigorosamente que a criação das variáveis fique numa jaula de chaves `{}` separada dos comandos):
+Crie um arquivo chamado **`teste.txt`** e escreva o código nele, como o exemplo abaixo (O G-V2 exige rigorosamente que a criação das variáveis fique numa jaula de colchetes `[]` separada dos comandos):
 
 ```pascal
 principal 
-{
-    a, b : int;
-}
-{
-    escreva "Ola! Qual o valor Mágico de A? ";
-    leia a;
+	[
+		a, b : int;
+	]
+	{
+		escreva "Ola! Qual o valor Magico de A? ";
+		leia a;
 
-    escreva "Digite o Somador B: ";
-    leia b;
+		escreva "Digite o Somador B: ";
+		leia b;
 
-    escreva "O Resultado brutal da soma e: ";
-    escreva a + b;
-    novalinha;
-}
+		escreva "O Resultado brutal da soma e: ";
+		escreva a + b;
+		novalinha;
+	}
 ```
 
 Agora jogue esse arquivo para o Compilador, usando o terminal:
 ```bash
-./g-v1 teste.g
+./g-v2 teste.txt
 ```
 
 Se as suas chaves tiverem no lugar, a tela vai printar um **SUCESSO** grandão informando que não houve erros de grafia. Agora olhe dentro da sua pasta novamente... O Compilador cuspiu o arquivo **`teste.s`**. 
@@ -161,3 +161,21 @@ Se quiser rodar o código, você pode usar o SPIM, um emulador levíssimo de Pla
 sudo apt-get install spim
 spim -file teste.s
 ```
+
+---
+
+## 🏆 O que a linguagem suporta hoje?
+
+Nosso compilador evoluiu bastante na sua versão **G-V2** e hoje a linguagem suporta uma série de recursos poderosos que a tornam robusta e pronta para algoritmos reais:
+
+* **Tipos de Dados:** Suporte a inteiros (`int`) e caracteres (`car`).
+* **Estruturas Condicionais:** Blocos de decisão com `se ... entao ... senao ... fimse`.
+* **Laços de Repetição:** Estruturas de repetição com o comando `enquanto (...) { ... }`.
+* **Vetores (Arrays):** Declaração de vetores unidimensionais (ex: `vet[10]:int;`) e acesso/modificação de posições (ex: `vet[i] = x;`).
+* **Funções e Procedimentos:**
+  * Declaração de múltiplas funções, incluindo passagem de parâmetros (tipos primitivos e vetores).
+  * Retorno de valores com o comando `retorne`.
+  * Chamadas de funções perfeitamente integradas na semântica da linguagem.
+* **Escopos Locais e Globais:** Suporte avançado a escopos através da nossa Tabela de Símbolos, permitindo sombreamento (*shadowing*) seguro e isolamento total de variáveis locais dentro de blocos.
+* **Operações Matemáticas e Relacionais:** Suporte completo a somas, subtrações, multiplicações, divisões e comparações lógicas (`<`, `<=`, `>`, `>=`, `==`, `!=`).
+* **I/O Nativo:** Comandos nativos para interagir com o usuário, como ler valores do teclado (`leia`) e imprimir resultados formatados na tela (`escreva` e `novalinha`).
