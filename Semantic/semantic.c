@@ -335,6 +335,7 @@ void checkSemantics(AST* node, Stack* scopes) {
         }
         
         case NODE_CHAMADA_FUNC:
+        case NODE_VETOR_ACESSO:
             /* Inferência de tipo já cuida das regras e busca das chamadas/acessos */
             inferirTipo(node, scopes);
             break;

@@ -23,6 +23,7 @@ typedef enum {
     NODE_CHAMADA_FUNC,     /* Chamada de função (como expressão) */
     NODE_RETORNE,          /* Comando retorne */
     NODE_VETOR_DECL,       /* Declaração de vetor (IDENT[INTCONST]) */
+    NODE_VETOR_ACESSO,     /* Acesso a vetor */
 } NodeType;
 
 typedef struct AST {

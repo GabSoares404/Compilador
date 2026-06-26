@@ -11,7 +11,7 @@ AST* createNode(NodeType type, char* lexema, int linha, AST* left, AST* right, A
     node->left = left;
     node->right = right;
     node->extra = extra;
-    node->params = NULL;  /* G-V2: padrão NULL para nós que não são funções */
+    node->params = NULL;  
     
     if (lexema != NULL) {
         node->lexema = strdup(lexema); 
